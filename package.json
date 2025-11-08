@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@clerk/nextjs": "^6.34.5",
+    "@elevenlabs/elevenlabs-js": "^2.22.0",
     "@radix-ui/react-slot": "^1.2.4",
     "@tabler/icons-react": "^3.35.0",
     "class-variance-authority": "^0.7.1",
