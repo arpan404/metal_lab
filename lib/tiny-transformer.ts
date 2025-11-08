@@ -27,7 +27,7 @@ for (let i = 0; i < VOCAB_SIZE; i++) {
 // Default config for a tiny transformer (optimized for web)
 export const DEFAULT_CONFIG: TransformerConfig = {
   vocabSize: VOCAB_SIZE, // 500 tokens
-  embeddingDim: 48, // Reduced from 64 to 48 (25% less memory)
+  embeddingDim: 48, // for token embeddings
   numHeads: 4, // 4 attention heads
   numLayers: 2, // 2 transformer layers
   maxSeqLength: 10, // Max sequence length

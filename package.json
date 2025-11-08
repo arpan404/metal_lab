@@ -44,6 +44,7 @@
     "tokenizers": "^0.13.3",
     "uuid": "^13.0.0",
     "uuidv5": "^1.0.0",
+    "xai-sdk": "^1.0.0-alpha.0",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
