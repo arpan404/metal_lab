@@ -1,10 +1,9 @@
 // physics-engine/experiments/BaseExperiment.ts
 import type { 
-    ExperimentState, 
-    ParameterConfig, 
-    LearningObjective,
+    ExperimentState,
     ExplanationPoint 
-  } from '../types';
+  } from '../types/experiments';
+import type { ParameterConfig, LearningObjective } from '../types/index';
   
   export abstract class BaseExperiment {
     protected name: string;

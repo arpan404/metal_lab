@@ -1,5 +1,5 @@
 // physics-engine/state/SnapshotManager.ts
-import type { Snapshot, ExperimentState } from '../types';
+import type { Snapshot, ExperimentState } from '../types/experiments';
 
 export class SnapshotManager {
   private snapshots: Map<string, Snapshot> = new Map();

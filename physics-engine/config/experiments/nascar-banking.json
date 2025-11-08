@@ -1,0 +1,62 @@
+{
+    "id": "nascar_banking",
+    "name": "NASCAR Banking",
+    "description": "Explore how banked turns allow race cars to maintain high speeds",
+    "difficulty": "beginner",
+    "estimatedTime": 10,
+    "tags": ["mechanics", "circular-motion", "forces", "racing"],
+    "parameters": [
+      {
+        "name": "bankAngle",
+        "label": "Bank Angle",
+        "min": 0,
+        "max": 45,
+        "default": 33,
+        "step": 1,
+        "unit": "°"
+      },
+      {
+        "name": "velocity",
+        "label": "Velocity",
+        "min": 20,
+        "max": 80,
+        "default": 50,
+        "step": 1,
+        "unit": "m/s"
+      },
+      {
+        "name": "trackRadius",
+        "label": "Track Radius",
+        "min": 100,
+        "max": 400,
+        "default": 200,
+        "step": 10,
+        "unit": "m"
+      },
+      {
+        "name": "friction",
+        "label": "Friction Coefficient",
+        "min": 0,
+        "max": 1,
+        "default": 0.7,
+        "step": 0.05,
+        "unit": ""
+      }
+    ],
+    "interestingValues": {
+      "bankAngle": [0, 15, 33, 45],
+      "velocity": [30, 50, 70],
+      "notes": {
+        "33": "Daytona International Speedway banking angle",
+        "50": "Approximate optimal speed for 33° at 200m radius"
+      }
+    },
+    "physics": {
+      "concepts": ["centripetal force", "normal force", "friction", "force resolution"],
+      "equations": [
+        "F_c = mv²/r",
+        "v_optimal = √(gr·tan(θ))",
+        "N·sin(θ) = mv²/r"
+      ]
+    }
+  }

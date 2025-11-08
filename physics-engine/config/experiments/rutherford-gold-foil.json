@@ -1,0 +1,56 @@
+{
+    "id": "rutherford_gold_foil",
+    "name": "Rutherford Gold Foil",
+    "description": "Discover the atomic nucleus through alpha particle scattering",
+    "difficulty": "advanced",
+    "estimatedTime": 20,
+    "tags": ["nuclear", "scattering", "atom", "coulomb"],
+    "parameters": [
+      {
+        "name": "alphaEnergy",
+        "label": "Alpha Energy",
+        "min": 1e6,
+        "max": 10e6,
+        "default": 5.5e6,
+        "step": 0.5e6,
+        "unit": "eV"
+      },
+      {
+        "name": "emissionRate",
+        "label": "Emission Rate",
+        "min": 1,
+        "max": 100,
+        "default": 10,
+        "step": 1,
+        "unit": "particles/s"
+      },
+      {
+        "name": "foilThickness",
+        "label": "Foil Thickness",
+        "min": 1e-7,
+        "max": 1e-5,
+        "default": 1e-6,
+        "step": 1e-7,
+        "unit": "m"
+      }
+    ],
+    "interestingValues": {
+      "alphaEnergy": [3e6, 5.5e6, 8e6],
+      "notes": {
+        "5.5e6": "Typical alpha particle energy from radioactive decay",
+        "79": "Atomic number of gold"
+      }
+    },
+    "physics": {
+      "concepts": ["Coulomb scattering", "nuclear model", "impact parameter", "cross section"],
+      "equations": [
+        "θ = 2·arctan(k·Z₁·Z₂·e²/(4·E·b))",
+        "b = k·Z₁·Z₂·e²·cot(θ/2)/(2·E)",
+        "F = k·q₁·q₂/r²"
+      ],
+      "constants": {
+        "Z_gold": 79,
+        "Z_alpha": 2
+      }
+    }
+  }

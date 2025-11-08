@@ -1,0 +1,90 @@
+{
+    "presets": {
+      "metal": {
+        "type": "physical",
+        "metalness": 1.0,
+        "roughness": 0.3,
+        "color": "#888888"
+      },
+      "glass": {
+        "type": "physical",
+        "metalness": 0,
+        "roughness": 0,
+        "transparent": true,
+        "opacity": 0.5,
+        "color": "#ffffff"
+      },
+      "plastic": {
+        "type": "standard",
+        "metalness": 0,
+        "roughness": 0.5,
+        "color": "#ffffff"
+      },
+      "gold": {
+        "type": "physical",
+        "metalness": 1.0,
+        "roughness": 0.2,
+        "color": "#ffd700"
+      },
+      "car_paint": {
+        "type": "physical",
+        "metalness": 0.8,
+        "roughness": 0.2,
+        "clearcoat": 1.0,
+        "clearcoatRoughness": 0.1,
+        "color": "#ff0000"
+      },
+      "track_surface": {
+        "type": "standard",
+        "metalness": 0,
+        "roughness": 0.8,
+        "color": "#333333"
+      },
+      "oil_droplet": {
+        "type": "physical",
+        "metalness": 0,
+        "roughness": 0.1,
+        "transparent": true,
+        "opacity": 0.7,
+        "color": "#8b7355"
+      },
+      "electric_plate": {
+        "type": "standard",
+        "metalness": 0.7,
+        "roughness": 0.3,
+        "color": "#c0c0c0"
+      },
+      "barrier": {
+        "type": "basic",
+        "color": "#000000",
+        "transparent": false
+      },
+      "wave": {
+        "type": "basic",
+        "color": "#00ffff",
+        "transparent": true,
+        "opacity": 0.8,
+        "side": "double"
+      },
+      "particle_trail": {
+        "type": "basic",
+        "color": "#ff6600",
+        "transparent": true,
+        "opacity": 0.6,
+        "blending": "additive"
+      },
+      "glow": {
+        "type": "basic",
+        "color": "#ffff00",
+        "transparent": true,
+        "opacity": 0.8,
+        "blending": "additive"
+      },
+      "grid": {
+        "type": "basic",
+        "color": "#888888",
+        "transparent": true,
+        "opacity": 0.2
+      }
+    }
+  }

@@ -1,0 +1,45 @@
+{
+    "engine": {
+      "enableWebGPU": true,
+      "enableAudio": true,
+      "targetFPS": 60,
+      "maxFrameHistory": 1000
+    },
+    "renderer": {
+      "antialias": true,
+      "shadows": true,
+      "physicallyCorrectLights": true,
+      "toneMapping": "ACESFilmic",
+      "toneMappingExposure": 1.0
+    },
+    "camera": {
+      "type": "perspective",
+      "fov": 75,
+      "near": 0.1,
+      "far": 1000,
+      "position": [0, 10, 20]
+    },
+    "controls": {
+      "enableDamping": true,
+      "dampingFactor": 0.05,
+      "rotateSpeed": 1.0,
+      "zoomSpeed": 1.0,
+      "panSpeed": 1.0
+    },
+    "simulation": {
+      "defaultSpeed": 1.0,
+      "minSpeed": 0.1,
+      "maxSpeed": 10.0
+    },
+    "ui": {
+      "showFPS": true,
+      "showParameters": true,
+      "showProgress": true,
+      "showMeasurements": true
+    },
+    "audio": {
+      "masterVolume": 0.8,
+      "effectsVolume": 0.6,
+      "musicVolume": 0.3
+    }
+  }
