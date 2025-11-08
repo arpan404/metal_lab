@@ -11,6 +11,7 @@ import type { ParameterConfig, LearningObjective } from '../types/index';
     protected parameters: Map<string, number> = new Map();
     protected parameterConfigs: ParameterConfig[];
     protected learningObjectives: LearningObjective[];
+    protected parameterHistory: Map<string, number[]> = new Map();
     
     // State tracking
     protected startTime: number = 0;

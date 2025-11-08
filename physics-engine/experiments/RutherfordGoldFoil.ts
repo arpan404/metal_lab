@@ -157,7 +157,7 @@ export class RutherfordGoldFoil extends BaseExperiment {
     const impactParameter = (Math.random() - 0.5) * 2 * maxImpact;
     
     // Calculate initial velocity from energy
-    const alphaM mass = 6.64e-27; // kg (He-4)
+    const alphaMass = 6.64e-27; // kg (He-4)
     const velocity = Math.sqrt(2 * this.alphaEnergy * 1.602e-19 / alphaMass);
     
     const particle: AlphaParticle = {
