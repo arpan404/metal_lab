@@ -1,10 +1,15 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { IconHome, IconMessage, IconUser, IconMenu2, IconX, IconLogout, IconChartArcs, IconMeterCube, IconDeviceVisionPro, IconDashboard, IconChevronsUp, IconChevronsDown } from "@tabler/icons-react";
-import { SignOutButton } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
+import { IconMenu2, IconX, IconLogout, IconChartArcs, IconDeviceVisionPro, IconLayoutDashboard, IconChevronsUp, IconChevronsDown, IconFlask, IconSparkles, IconBell, IconSearch } from "@tabler/icons-react";
+import { SignOutButton, useUser } from "@clerk/nextjs";
 import { Button } from "../ui/button";
+import { Avatar, AvatarFallback } from "../ui/avatar";
+import { Badge } from "../ui/badge";
 import { useNavbar } from "@/lib/contexts/navbar-context";
+import { NotificationDialog } from "./notification-dialog";
+import { UserMenu } from "./user-menu";
 
 export function Header({
     children,
@@ -13,10 +18,11 @@ export function Header({
 }>) {
     const [open, setOpen] = useState(false);
     const { isNavbarVisible, setIsNavbarVisible } = useNavbar();
+    const pathname = usePathname();
 
     const navItems = [
-        { name: "Dashboard", link: "/", icon: <IconDashboard className="h-4 w-4" /> },
-        { name: "Labs", link: "/labs", icon: <IconDeviceVisionPro className="h-4 w-4" /> },
+        { name: "Dashboard", link: "/", icon: <IconLayoutDashboard className="h-4 w-4" /> },
+        { name: "Labs", link: "/labs", icon: <IconFlask className="h-4 w-4" /> },
         { name: "Progress", link: "/progress", icon: <IconChartArcs className="h-4 w-4" /> },
     ];
 
@@ -26,59 +32,78 @@ export function Header({
             {!isNavbarVisible && (
                 <button
                     onClick={() => setIsNavbarVisible(true)}
-                    className="fixed top-0 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-b-lg shadow-lg transition-all duration-300 z-50 opacity-60 hover:opacity-100"
+                    className="fixed top-0 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-4 py-2 rounded-b-lg shadow-lg transition-all duration-300 z-50 opacity-70 hover:opacity-100"
                     aria-label="Show navbar"
                 >
                     <IconChevronsDown className="h-4 w-4" />
                 </button>
             )}
 
-            <header className={`fixed inset-x-0 top-0 z-50 bg-background backdrop-blur border-b border-border transition-transform duration-300 ${
+            <header className={`fixed inset-x-0 top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 transition-transform duration-300 ${
                 isNavbarVisible ? 'translate-y-0' : '-translate-y-full'
             }`}>
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-                    <div className="flex h-14 items-center justify-between">
+                    <div className="flex h-16 items-center justify-between">
                         {/* Brand */}
-                        <Link href="/" className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-purple-500 text-sm font-semibold text-white">
-                                M
+                        <Link href="/" className="flex items-center gap-3 group">
+                            <div className="relative flex h-10 w-10 items-center justify-center rounded-xl bg-slate-900 text-base font-bold text-white shadow-lg transition-transform duration-300 group-hover:scale-105">
+                                <IconFlask className="h-5 w-5" />
+                                <div className="absolute -inset-1 rounded-xl bg-linear-to-r from-blue-600 to-cyan-600 opacity-0 blur transition-opacity duration-300 group-hover:opacity-30 -z-10" />
                             </div>
-                            <span className="hidden text-sm font-medium md:inline">
-                                Metal Lab
-                            </span>
+                            <div className="hidden md:block">
+                                <div className="text-base font-bold text-slate-900 tracking-tight">Metal Lab</div>
+                                <div className="text-xs text-slate-500">Physics Experiments</div>
+                            </div>
                         </Link>
 
                         {/* Desktop nav */}
-                        <nav className="hidden md:flex items-center space-x-6">
-                            {navItems.map((item) => (
-                                <Link
-                                    key={item.name}
-                                    href={item.link}
-                                    className="flex items-center gap-2 rounded-md px-2 py-1 text-sm font-medium text-neutral-700 hover:text-indigo-600 dark:text-neutral-300 dark:hover:text-indigo-400 transition-colors"
-                                >
-                                    <span className="text-neutral-500 dark:text-neutral-400">{item.icon}</span>
-                                    <span>{item.name}</span>
-                                </Link>
-                            ))}
-
+                        <nav className="hidden md:flex items-center gap-2">
+                            {navItems.map((item) => {
+                                const isActive = pathname === item.link;
+                                return (
+                                    <Link
+                                        key={item.name}
+                                        href={item.link}
+                                        className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                                            isActive 
+                                                ? 'bg-slate-900 text-white shadow-md' 
+                                                : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                                        }`}
+                                    >
+                                        {item.icon}
+                                        <span>{item.name}</span>
+                                    </Link>
+                                );
+                            })}
                         </nav>
-                        <div className="flex items-center gap-2">
-                            <button
+
+                        {/* Right side actions */}
+                        <div className="flex items-center gap-3">
+                            {/* Search - Desktop only */}
+                            <Button variant="ghost" size="icon" className="hidden lg:flex text-slate-600 hover:text-slate-900">
+                                <IconSearch className="h-5 w-5" />
+                            </Button>
+
+                            {/* Notifications - All devices */}
+                            <NotificationDialog />
+
+                            {/* Hide navbar button - Desktop only */}
+                            <Button
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => setIsNavbarVisible(false)}
-                                className="text-muted-foreground hover:text-foreground transition-colors hidden md:block"
+                                className="hidden md:flex text-slate-600 hover:text-slate-900"
                                 aria-label="Hide navbar"
                                 title="Hide navbar"
                             >
                                 <IconChevronsUp className="h-5 w-5" />
-                            </button>
-                            <SignOutButton>
-                                    <Button variant={
-                                        "ghost"
-                                    }>
-                                        <IconLogout className="mr-2 h-4 w-4" />
-                                    Signout
-                                    </Button>
-                                    </SignOutButton>
+                            </Button>
+
+                            {/* User menu - Desktop */}
+                            <div className="hidden md:flex items-center gap-3">
+                                <div className="h-8 w-px bg-gray-200" />
+                                <UserMenu />
+                            </div>
                         </div>
 
                         {/* Mobile toggle */}

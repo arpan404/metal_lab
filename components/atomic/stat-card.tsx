@@ -3,7 +3,7 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 interface StatCardProps {
-  icon: string
+  icon: React.ReactNode | string
   label: string
   value: string | number
   description?: string
