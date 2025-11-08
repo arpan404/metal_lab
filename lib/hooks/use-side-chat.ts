@@ -1,7 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { useChatStore, type ChatMessage } from "@/lib/chat-store";
 
-export function useSideChat(labUID: string, isOpen: boolean) {
+export function useSideChat(labUID: string, isOpen: boolean, experimentDetails: {
+  name: string;
+  description: string;
+  currentState: any;
+  variables: Record<string, any>;
+}) {
   const {
     getMessagesForLab,
     addMessageToLab,
@@ -67,20 +72,24 @@ export function useSideChat(labUID: string, isOpen: boolean) {
     setIsLoading(true);
 
     // Add user message to store
-    const userMessage: ChatMessage = { role: "user", content: newMessage };
+    const userMessage: ChatMessage = { role: "user", content: newMessage};
     addMessageToLab(labUID, userMessage);
 
     // Start streaming
     setStreamingMessage("");
 
     try {
+      const experimentInfo = {
+        role: "system",
+        content: `Experiment Name: ${experimentDetails.name}\nDescription: ${experimentDetails.description}\nCurrent State: ${JSON.stringify(experimentDetails.currentState)}\nVariables: ${JSON.stringify(experimentDetails.variables)}`,
+      };
       const response = await fetch("/api/ai/chat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          messages: messages,
+          messages: [experimentInfo, ...messages],
           newMessage: newMessage,
         }),
       });
