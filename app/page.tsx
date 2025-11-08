@@ -1,20 +1,19 @@
 'use client'
-
-import React, { useEffect } from 'react'
+import React from 'react'
+import { useAuth } from "@clerk/nextjs"
+import LandingPage from '@/components/ui/landing_page'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { useAppStore, type Activity as ActivityType } from '@/lib/app-store'
+import { useAppStore } from '@/lib/app-store'
 import { 
   TrendingUp, 
   Clock, 
   Award, 
-  BookOpen, 
   Target, 
   Sparkles, 
-  Zap, 
   Flame,
   Activity,
   ArrowUpRight,
@@ -32,99 +31,77 @@ import {
 import { 
   IconFlask, 
   IconAtom, 
-  IconChartBar, 
   IconTrophy,
-  IconBolt,
-  IconTarget
 } from '@tabler/icons-react'
 
 export default function Page() {
-  const { 
-    stats,
-    labs,
-    badges,
-    activities,
-    isLoading,
-    error,
-    initialize 
-  } = useAppStore()
+  const { userId, isLoaded } = useAuth()
+  const { stats: userStats, labs, activities } = useAppStore()
 
-  useEffect(() => {
-    initialize()
-  }, [initialize])
+  // Show landing page for unauthenticated users or while auth is loading
+  // if (!isLoaded || !userId) {
+    return <LandingPage/>
+  // }
 
-  const statsData = [
+  const stats = [
     {
       icon: <IconFlask className="h-6 w-6" />,
-      label: 'Completed Labs',
-      value: stats.completedLabs,
+      label: 'Experiments Completed',
+      value: userStats.completedLabs,
       iconBg: 'bg-emerald-500',
-      trend: { value: `${Math.round((stats.completedLabs / stats.totalLabs) * 100)}% complete`, positive: true },
+      trend: { value: '+3 this week', positive: true },
     },
     {
       icon: <IconAtom className="h-6 w-6" />,
       label: 'Labs In Progress',
-      value: stats.inProgressLabs,
+      value: userStats.inProgressLabs,
       iconBg: 'bg-sky-500',
-      trend: { value: `${stats.totalLabs - stats.completedLabs - stats.inProgressLabs} remaining`, positive: true },
+      trend: { value: '+1 today', positive: true },
     },
     {
       icon: <Flame className="h-6 w-6" />,
       label: 'Current Streak',
-      value: `${stats.currentStreak} days`,
+      value: `${userStats.currentStreak} days`,
       iconBg: 'bg-orange-500',
-      description: 'Keep up the momentum!',
+      description: userStats.currentStreak === userStats.longestStreak ? 'Your longest streak yet!' : `Best: ${userStats.longestStreak} days`,
     },
     {
       icon: <IconTrophy className="h-6 w-6" />,
-      label: 'Current Level',
-      value: stats.level,
+      label: 'Total Points',
+      value: userStats.totalPoints.toLocaleString(),
       iconBg: 'bg-purple-500',
-      trend: { value: `${stats.currentXP}/${stats.xpToNextLevel} XP`, positive: true },
+      trend: { value: `Level ${userStats.level}`, positive: true },
     },
   ]
 
-  const timeStats = {
-    today: Math.round(stats.hoursLearned * 60), // Convert hours to minutes
-    thisWeek: Math.round(stats.hoursLearned * 60), // This should be updated to track weekly time
-    total: stats.hoursLearned * 60
-  }
+  // Get recent labs from activities
+  const recentActivity = activities.slice(0, 3).map((activity) => {
+    const relatedLab = labs.find(l => l.title === activity.title || activity.title.includes(l.title))
+    return {
+      id: activity.id,
+      title: activity.title,
+      category: relatedLab?.category || 'Physics',
+      progress: relatedLab?.progress || 0,
+      time: formatTimestamp(activity.timestamp),
+    }
+  })
 
-  function formatTime(minutes: number) {
-    if (minutes < 60) {
-      return `${minutes}m`
-    }
-    return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
-  }
+  function formatTimestamp(timestamp: Date) {
+    const now = new Date()
+    const diffMs = now.getTime() - timestamp.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMs / 3600000)
+    const diffDays = Math.floor(diffMs / 86400000)
 
-  function formatTimeAgo(date: Date) {
-    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
-    let interval = Math.floor(seconds / 31536000)
-
-    if (interval > 1) {
-      return `${interval} years ago`
-    }
-    interval = Math.floor(seconds / 2592000)
-    if (interval > 1) {
-      return `${interval} months ago`
-    }
-    interval = Math.floor(seconds / 86400)
-    if (interval > 1) {
-      return `${interval} days ago`
-    }
-    interval = Math.floor(seconds / 3600)
-    if (interval > 1) {
-      return `${interval} hours ago`
-    }
-    interval = Math.floor(seconds / 60)
-    if (interval > 1) {
-      return `${interval} minutes ago`
-    }
-    return `${Math.floor(seconds)} seconds ago`
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return timestamp.toLocaleDateString()
   }
 
   return (
-    <main className="min-h-screen bg-linear-to-br from-slate-50 via-white to-blue-50/20">
+    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* Hero Section with Welcome */}
@@ -136,13 +113,13 @@ export default function Page() {
                   <Sparkles className="w-6 h-6 text-amber-500" />
                   <Sparkles className="w-3 h-3 text-amber-400 absolute -top-1 -right-1 animate-pulse" />
                 </div>
-                <Badge className="bg-linear-to-r from-amber-500 to-orange-500 text-white border-0 px-3 py-1">
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 px-3 py-1">
                   <Trophy className="w-3 h-3 mr-1" />
-                  Level 3 Scholar
+                  Level {userStats.level} Scholar
                 </Badge>
                 <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700">
                   <Flame className="w-3 h-3 mr-1" />
-                  14 day streak
+                  {userStats.currentStreak} day streak
                 </Badge>
               </div>
               <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
@@ -160,9 +137,8 @@ export default function Page() {
         </div>
 
         {/* Current Focus Card - Full Width */}
-        <Card className="border-0 bg-linear-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden relative group">
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,var(--tw-gradient-stops))] from-blue-900/20 via-transparent to-transparent" />
-          <div className="absolute inset-0 bg-grid-white/5" />
+        <Card className="border-0 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white overflow-hidden relative group">
+          <div className="absolute inset-0 bg-gradient-radial from-blue-900/20 via-transparent to-transparent" />
           <CardContent className="relative p-8">
             <div className="flex items-start justify-between mb-8">
               <div className="space-y-3">
@@ -186,7 +162,7 @@ export default function Page() {
               </Button>
             </div>
             
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="bg-white/5 backdrop-blur-sm rounded-xl p-4 border border-white/10">
                 <div className="flex items-center gap-2 mb-2">
                   <Clock className="w-4 h-4 text-blue-400" />
@@ -213,7 +189,7 @@ export default function Page() {
                   <Award className="w-4 h-4 text-amber-400" />
                   <span className="text-xs text-white/60 uppercase">Level</span>
                 </div>
-                <div className="text-2xl font-bold">3</div>
+                <div className="text-2xl font-bold">{userStats.level}</div>
               </div>
             </div>
           </CardContent>
@@ -221,7 +197,7 @@ export default function Page() {
 
         {/* Stats Grid - Premium Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {statsData.map((stat, index) => (
+          {stats.map((stat, index) => (
             <Card key={index} className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-gray-200/60 overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -256,7 +232,7 @@ export default function Page() {
           {/* Recent Activity */}
           <div className="lg:col-span-2 space-y-6">
             <Card className="overflow-hidden border-gray-200/60">
-              <CardHeader className="bg-linear-to-r from-slate-50 to-transparent border-b border-gray-100">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-transparent border-b border-gray-100">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -277,36 +253,33 @@ export default function Page() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-gray-100">
-                  {activities.map((activity: ActivityType) => (
+                  {recentActivity.map((activity) => (
                     <div key={activity.id} className="p-6 hover:bg-slate-50/50 transition-all duration-200 group">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3">
                           <div className={`w-10 h-10 rounded-lg ${
-                            activity.type === 'completed' ? 'bg-emerald-100' : 'bg-blue-100'
+                            activity.progress === 100 ? 'bg-emerald-100' : 'bg-blue-100'
                           } flex items-center justify-center shrink-0`}>
-                            {activity.type === 'completed' ? (
+                            {activity.progress === 100 ? (
                               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                            ) : activity.type === 'badge' ? (
-                              <Award className="w-5 h-5 text-amber-600" />
                             ) : (
                               <Play className="w-5 h-5 text-blue-600" />
                             )}
                           </div>
                           <div>
                             <h4 className="font-semibold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">{activity.title}</h4>
-                            <p className="text-sm text-slate-600">{activity.description}</p>
+                            <p className="text-sm text-slate-600">{activity.category}</p>
                           </div>
                         </div>
-                        {activity.points && (
-                          <Badge variant="outline" className="text-xs font-semibold">
-                            +{activity.points} XP
-                          </Badge>
-                        )}
+                        <Badge variant="outline" className="text-xs font-semibold">
+                          {activity.progress}%
+                        </Badge>
                       </div>
                       <div className="ml-13">
+                        <Progress value={activity.progress} className="mb-3" />
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <Clock className="w-3 h-3" />
-                          <span>{formatTimeAgo(activity.timestamp)}</span>
+                          <span>{activity.time}</span>
                         </div>
                       </div>
                     </div>
@@ -320,7 +293,7 @@ export default function Page() {
           <div className="space-y-6">
             {/* Weekly Goal */}
             <Card className="overflow-hidden border-gray-200/60">
-              <CardHeader className="bg-linear-to-r from-purple-50 to-transparent border-b border-gray-100">
+              <CardHeader className="bg-gradient-to-r from-purple-50 to-transparent border-b border-gray-100">
                 <CardTitle className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                     <Target className="w-5 h-5 text-purple-600" />
@@ -360,7 +333,7 @@ export default function Page() {
 
             {/* Quick Actions */}
             <Card className="overflow-hidden border-gray-200/60">
-              <CardHeader className="bg-linear-to-r from-slate-50 to-transparent border-b border-gray-100">
+              <CardHeader className="bg-gradient-to-r from-slate-50 to-transparent border-b border-gray-100">
                 <CardTitle className="text-base font-bold text-slate-900">Quick Actions</CardTitle>
               </CardHeader>
               <CardContent className="p-6 space-y-3">
@@ -393,7 +366,7 @@ export default function Page() {
             </Card>
 
             {/* Achievement Preview */}
-            <Card className="overflow-hidden border-gray-200/60 bg-linear-to-br from-amber-50 to-orange-50">
+            <Card className="overflow-hidden border-gray-200/60 bg-gradient-to-br from-amber-50 to-orange-50">
               <CardContent className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-lg shrink-0">
@@ -415,4 +388,3 @@ export default function Page() {
     </main>
   )
 }
-
