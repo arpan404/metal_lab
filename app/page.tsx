@@ -1,11 +1,12 @@
 'use client'
-import React from 'react'
+
+import React, { useEffect } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { useAppStore } from '@/lib/app-store'
+import { useAppStore, type Activity as ActivityType } from '@/lib/app-store'
 import { 
   TrendingUp, 
   Clock, 
@@ -38,63 +39,88 @@ import {
 } from '@tabler/icons-react'
 
 export default function Page() {
-  const { stats: userStats, labs, activities } = useAppStore()
+  const { 
+    stats,
+    labs,
+    badges,
+    activities,
+    isLoading,
+    error,
+    initialize 
+  } = useAppStore()
 
-  const stats = [
+  useEffect(() => {
+    initialize()
+  }, [initialize])
+
+  const statsData = [
     {
       icon: <IconFlask className="h-6 w-6" />,
-      label: 'Experiments Completed',
-      value: userStats.completedLabs,
+      label: 'Completed Labs',
+      value: stats.completedLabs,
       iconBg: 'bg-emerald-500',
-      trend: { value: '+3 this week', positive: true },
+      trend: { value: `${Math.round((stats.completedLabs / stats.totalLabs) * 100)}% complete`, positive: true },
     },
     {
       icon: <IconAtom className="h-6 w-6" />,
       label: 'Labs In Progress',
-      value: userStats.inProgressLabs,
+      value: stats.inProgressLabs,
       iconBg: 'bg-sky-500',
-      trend: { value: '+1 today', positive: true },
+      trend: { value: `${stats.totalLabs - stats.completedLabs - stats.inProgressLabs} remaining`, positive: true },
     },
     {
       icon: <Flame className="h-6 w-6" />,
       label: 'Current Streak',
-      value: `${userStats.currentStreak} days`,
+      value: `${stats.currentStreak} days`,
       iconBg: 'bg-orange-500',
-      description: userStats.currentStreak === userStats.longestStreak ? 'Your longest streak yet!' : `Best: ${userStats.longestStreak} days`,
+      description: 'Keep up the momentum!',
     },
     {
       icon: <IconTrophy className="h-6 w-6" />,
-      label: 'Total Points',
-      value: userStats.totalPoints.toLocaleString(),
+      label: 'Current Level',
+      value: stats.level,
       iconBg: 'bg-purple-500',
-      trend: { value: `Level ${userStats.level}`, positive: true },
+      trend: { value: `${stats.currentXP}/${stats.xpToNextLevel} XP`, positive: true },
     },
   ]
 
-  // Get recent labs from activities
-  const recentActivity = activities.slice(0, 3).map((activity, index) => {
-    const relatedLab = labs.find(l => l.title === activity.title || activity.title.includes(l.title))
-    return {
-      id: activity.id,
-      title: activity.title,
-      category: relatedLab?.category || 'Physics',
-      progress: relatedLab?.progress || 0,
-      time: formatTimestamp(activity.timestamp),
+  const timeStats = {
+    today: Math.round(stats.hoursLearned * 60), // Convert hours to minutes
+    thisWeek: Math.round(stats.hoursLearned * 60), // This should be updated to track weekly time
+    total: stats.hoursLearned * 60
+  }
+
+  function formatTime(minutes: number) {
+    if (minutes < 60) {
+      return `${minutes}m`
     }
-  })
+    return `${Math.floor(minutes / 60)}h ${minutes % 60}m`
+  }
 
-  function formatTimestamp(timestamp: Date) {
-    const now = new Date()
-    const diffMs = now.getTime() - timestamp.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    const diffDays = Math.floor(diffMs / 86400000)
+  function formatTimeAgo(date: Date) {
+    const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000)
+    let interval = Math.floor(seconds / 31536000)
 
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return timestamp.toLocaleDateString()
+    if (interval > 1) {
+      return `${interval} years ago`
+    }
+    interval = Math.floor(seconds / 2592000)
+    if (interval > 1) {
+      return `${interval} months ago`
+    }
+    interval = Math.floor(seconds / 86400)
+    if (interval > 1) {
+      return `${interval} days ago`
+    }
+    interval = Math.floor(seconds / 3600)
+    if (interval > 1) {
+      return `${interval} hours ago`
+    }
+    interval = Math.floor(seconds / 60)
+    if (interval > 1) {
+      return `${interval} minutes ago`
+    }
+    return `${Math.floor(seconds)} seconds ago`
   }
 
   return (
@@ -195,7 +221,7 @@ export default function Page() {
 
         {/* Stats Grid - Premium Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
+          {statsData.map((stat, index) => (
             <Card key={index} className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-gray-200/60 overflow-hidden">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -251,33 +277,36 @@ export default function Page() {
               </CardHeader>
               <CardContent className="p-0">
                 <div className="divide-y divide-gray-100">
-                  {recentActivity.map((activity) => (
+                  {activities.map((activity: ActivityType) => (
                     <div key={activity.id} className="p-6 hover:bg-slate-50/50 transition-all duration-200 group">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-start gap-3">
                           <div className={`w-10 h-10 rounded-lg ${
-                            activity.progress === 100 ? 'bg-emerald-100' : 'bg-blue-100'
+                            activity.type === 'completed' ? 'bg-emerald-100' : 'bg-blue-100'
                           } flex items-center justify-center shrink-0`}>
-                            {activity.progress === 100 ? (
+                            {activity.type === 'completed' ? (
                               <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                            ) : activity.type === 'badge' ? (
+                              <Award className="w-5 h-5 text-amber-600" />
                             ) : (
                               <Play className="w-5 h-5 text-blue-600" />
                             )}
                           </div>
                           <div>
                             <h4 className="font-semibold text-slate-900 mb-1 group-hover:text-blue-600 transition-colors">{activity.title}</h4>
-                            <p className="text-sm text-slate-600">{activity.category}</p>
+                            <p className="text-sm text-slate-600">{activity.description}</p>
                           </div>
                         </div>
-                        <Badge variant="outline" className="text-xs font-semibold">
-                          {activity.progress}%
-                        </Badge>
+                        {activity.points && (
+                          <Badge variant="outline" className="text-xs font-semibold">
+                            +{activity.points} XP
+                          </Badge>
+                        )}
                       </div>
                       <div className="ml-13">
-                        <Progress value={activity.progress} className="mb-3" />
                         <div className="flex items-center gap-2 text-xs text-slate-500">
                           <Clock className="w-3 h-3" />
-                          <span>{activity.time}</span>
+                          <span>{formatTimeAgo(activity.timestamp)}</span>
                         </div>
                       </div>
                     </div>
