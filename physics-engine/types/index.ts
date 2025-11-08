@@ -1,10 +1,4 @@
-// physics-engine/types/index.ts
-/**
- * Central type definitions for the physics engine
- */
-
-// Re-export all types
-export * from './experiments';
+//export * from './experiments';
 export * from './state';
 export * from './llm';
 export * from './physics';
@@ -12,15 +6,21 @@ export * from './games';
 export * from './renderer';
 export * from './models';
 
-// Core types
+// Core engine types
 export interface EngineConfig {
-  canvas?: HTMLCanvasElement;
-  useWebGPU?: boolean;
-  maxFrameRate?: number;
-  gravity?: Vector3D;
-  debug?: boolean;
+  enableWebGPU?: boolean;
+  enableAudio?: boolean;
+  maxFrameHistory?: number;
+  targetFPS?: number;
 }
 
+export interface SimulationParams {
+  timeStep: number;
+  speed: number;
+  maxIterations?: number;
+}
+
+// Vector types
 export interface Vector3D {
   x: number;
   y: number;
@@ -32,40 +32,73 @@ export interface Vector2D {
   y: number;
 }
 
-export interface SimulationParams {
-  timeStep: number;
-  maxSubSteps: number;
-  speed: number;
+// Parameter configuration
+export interface ParameterConfig {
+  name: string;
+  label: string;
+  min: number;
+  max: number;
+  default: number;
+  step: number;
+  unit: string;
+  description: string;
 }
 
+// Learning objectives
+export interface LearningObjective {
+  id: string;
+  name: string;
+  description: string;
+  criteria: ObjectiveCriteria;
+}
+
+export type ObjectiveCriteria =
+  | {
+      type: 'measurement';
+      key: string;
+      target: number;
+      tolerance: number;
+    }
+  | {
+      type: 'time_spent';
+      duration: number;
+    }
+  | {
+      type: 'parameter_exploration';
+      parameter: string;
+      minChanges: number;
+    };
+
+// Rigid body configuration for Cannon.js
 export interface RigidBodyConfig {
   mass: number;
   position: Vector3D;
   velocity?: Vector3D;
-  rotation?: Vector3D;
+  angularVelocity?: Vector3D;
   shape: ShapeConfig;
-  material?: MaterialConfig;
 }
 
-export interface ShapeConfig {
-  type: 'sphere' | 'box' | 'cylinder' | 'plane';
-  radius?: number;
-  width?: number;
-  height?: number;
-  depth?: number;
-  radiusTop?: number;
-  radiusBottom?: number;
-  segments?: number;
-}
+export type ShapeConfig =
+  | {
+      type: 'sphere';
+      radius: number;
+    }
+  | {
+      type: 'box';
+      width: number;
+      height: number;
+      depth: number;
+    }
+  | {
+      type: 'cylinder';
+      radiusTop: number;
+      radiusBottom: number;
+      height: number;
+      segments: number;
+    };
 
-export interface MaterialConfig {
-  friction: number;
-  restitution: number;
-  density?: number;
-}
-
+// Charged particle for electric field simulations
 export interface ChargedParticle {
-  id?: string;
   position: Vector3D;
   velocity: Vector3D;
   mass: number;
@@ -73,12 +106,20 @@ export interface ChargedParticle {
   radius: number;
 }
 
-export interface WaveParameters {
-  gridSize: number;
-  wavelength: number;
-  dt: number;
-  slitSeparation: number;
-  slitWidth?: number;
-  amplitude?: number;
-  frequency?: number;
+// Parameter change tracking
+export interface ParameterChange {
+  key?: string;
+  parameter?: string;
+  value?: number;
+  oldValue?: number;
+  newValue?: number;
+  timestamp: number;
+}
+
+// State change tracking
+export interface StateChange {
+  field: string;
+  oldValue: any;
+  newValue: any;
+  timestamp: number;
 }

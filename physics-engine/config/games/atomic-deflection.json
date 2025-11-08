@@ -1,0 +1,115 @@
+{
+    "id": "atomic_deflection",
+    "name": "Atomic Deflection Challenge",
+    "description": "Guide alpha particles to specific target angles",
+    "difficulty": "hard",
+    "timeLimit": 180,
+    "objectives": [
+      {
+        "id": "hit-target-10",
+        "description": "Hit 10° target zone",
+        "targetValue": 10,
+        "tolerance": 5,
+        "points": 100,
+        "required": true
+      },
+      {
+        "id": "hit-target-45",
+        "description": "Hit 45° target zone",
+        "targetValue": 45,
+        "tolerance": 5,
+        "points": 200,
+        "required": false
+      },
+      {
+        "id": "hit-target-90",
+        "description": "Hit 90° target zone (rare!)",
+        "targetValue": 90,
+        "tolerance": 5,
+        "points": 500,
+        "required": false
+      },
+      {
+        "id": "precision",
+        "description": "Hit target within ±2°",
+        "targetValue": 2,
+        "points": 300,
+        "required": false
+      }
+    ],
+    "scoring": {
+      "basePoints": 100,
+      "timeBonus": true,
+      "accuracyBonus": true,
+      "comboMultiplier": 1.5,
+      "penalties": [
+        {
+          "reason": "missed_target",
+          "points": -10
+        },
+        {
+          "reason": "time_expired",
+          "points": -50
+        }
+      ]
+    },
+    "challenges": [
+      {
+        "id": "challenge_1",
+        "name": "Small Angle Mastery",
+        "description": "Hit five targets at angles < 20°",
+        "targets": [5, 10, 15, 8, 12],
+        "timeLimit": 60,
+        "points": 400
+      },
+      {
+        "id": "challenge_2",
+        "name": "Large Angle Hunt",
+        "description": "Hit three large-angle targets (> 60°)",
+        "targets": [75, 90, 120],
+        "timeLimit": 90,
+        "points": 800
+      },
+      {
+        "id": "challenge_3",
+        "name": "Precision Master",
+        "description": "Hit all targets within ±1°",
+        "targets": [15, 30, 45, 60, 75],
+        "tolerance": 1,
+        "timeLimit": 120,
+        "points": 1000
+      }
+    ],
+    "targetZones": [
+      {
+        "angleMin": 0,
+        "angleMax": 10,
+        "points": 50,
+        "color": "#00ff00"
+      },
+      {
+        "angleMin": 10,
+        "angleMax": 30,
+        "points": 100,
+        "color": "#ffff00"
+      },
+      {
+        "angleMin": 30,
+        "angleMax": 60,
+        "points": 200,
+        "color": "#ff8800"
+      },
+      {
+        "angleMin": 60,
+        "angleMax": 90,
+        "points": 400,
+        "color": "#ff0000"
+      },
+      {
+        "angleMin": 90,
+        "angleMax": 180,
+        "points": 500,
+        "color": "#ff00ff"
+      }
+    ]
+  }

@@ -1,0 +1,62 @@
+{
+    "id": "foucault_pendulum",
+    "name": "Foucault Pendulum",
+    "description": "Demonstrates Earth's rotation through pendulum precession",
+    "difficulty": "intermediate",
+    "estimatedTime": 15,
+    "tags": ["mechanics", "rotation", "coriolis", "earth"],
+    "parameters": [
+      {
+        "name": "latitude",
+        "label": "Latitude",
+        "min": -90,
+        "max": 90,
+        "default": 45,
+        "step": 1,
+        "unit": "°"
+      },
+      {
+        "name": "length",
+        "label": "Pendulum Length",
+        "min": 5,
+        "max": 30,
+        "default": 10,
+        "step": 0.5,
+        "unit": "m"
+      },
+      {
+        "name": "mass",
+        "label": "Bob Mass",
+        "min": 1,
+        "max": 20,
+        "default": 5,
+        "step": 0.5,
+        "unit": "kg"
+      },
+      {
+        "name": "initialAngle",
+        "label": "Initial Displacement",
+        "min": 0.05,
+        "max": 0.3,
+        "default": 0.1,
+        "step": 0.01,
+        "unit": "rad"
+      }
+    ],
+    "interestingValues": {
+      "latitude": [0, 30, 45, 60, 90],
+      "length": [10, 20],
+      "notes": {
+        "0": "At the equator, no precession occurs",
+        "90": "At the poles, full 24-hour precession",
+        "45": "At 45° latitude, precession period is about 34 hours"
+      }
+    },
+    "physics": {
+      "concepts": ["Coriolis effect", "rotating reference frames", "angular momentum"],
+      "equations": [
+        "T = 24h / sin(latitude)",
+        "F_coriolis = -2m(ω × v)"
+      ]
+    }
+  }

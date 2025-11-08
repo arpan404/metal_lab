@@ -53,7 +53,7 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.181.0",
     "@webgpu/types": "^0.1.66",
-    "drizzle-kit": "^0.31.6",
+    "drizzle-kit": "^0.18.1",
     "eslint": "^9",
     "eslint-config-next": "16.0.1",
     "tailwindcss": "^4",

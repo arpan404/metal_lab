@@ -1,39 +1,43 @@
 // physics-engine/types/state.ts
 
-export interface Snapshot {
-    id: string;
-    name: string;
-    state: ExperimentState;
-    timestamp: number;
-    metadata?: Record<string, any>;
-  }
-  
-  export interface ParameterChange {
-    parameter?: string;
-    key?: string;
-    oldValue?: number;
-    value?: number;
-    newValue?: number;
-    timestamp: number;
-  }
-  
-  export interface StateChange {
-    field: string;
-    oldValue: any;
-    newValue: any;
-    timestamp: number;
-  }
-  
-  export interface SaveData {
-    snapshots: Snapshot[];
-    parameterHistory: ParameterChange[];
-    stateHistory?: StateChange[];
-    metadata?: {
-      experimentId: string;
-      version: string;
-      createdAt: number;
-      modifiedAt: number;
-    };
-  }
-  
-  import type { ExperimentState } from './experiments';
+import type { ExperimentState } from './experiments';
+
+export interface StateSnapshot {
+  id: string;
+  name: string;
+  state: ExperimentState;
+  timestamp: number;
+  description?: string;
+}
+
+export interface StateHistory {
+  frames: ExperimentState[];
+  snapshots: StateSnapshot[];
+  parameterChanges: ParameterChangeRecord[];
+}
+
+export interface ParameterChangeRecord {
+  parameter: string;
+  oldValue: number;
+  newValue: number;
+  timestamp: number;
+  reason?: string;
+}
+
+export interface ProgressData {
+  objectiveId: string;
+  progress: number; // 0-1
+  completed: boolean;
+  timestamp: number;
+}
+
+export interface SessionData {
+  sessionId: string;
+  experimentName: string;
+  startTime: number;
+  endTime?: number;
+  totalTime: number;
+  progress: ProgressData[];
+  snapshots: StateSnapshot[];
+  parameterChanges: ParameterChangeRecord[];
+}

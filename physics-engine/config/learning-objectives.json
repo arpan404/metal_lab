@@ -1,0 +1,198 @@
+{
+    "foucault_pendulum": [
+      {
+        "id": "observe-precession",
+        "name": "Observe Precession",
+        "description": "Watch the pendulum plane rotate over time due to Earth's rotation",
+        "difficulty": "beginner",
+        "estimatedTime": 5,
+        "criteria": {
+          "type": "time_spent",
+          "duration": 60
+        }
+      },
+      {
+        "id": "measure-period",
+        "name": "Measure Precession Period",
+        "description": "Calculate how long it takes for one complete rotation of the swing plane",
+        "difficulty": "intermediate",
+        "estimatedTime": 10,
+        "criteria": {
+          "type": "parameter_exploration",
+          "parameter": "latitude",
+          "minChanges": 3
+        }
+      },
+      {
+        "id": "understand-coriolis",
+        "name": "Understand Coriolis Effect",
+        "description": "Explain why the pendulum precesses and how latitude affects it",
+        "difficulty": "advanced",
+        "estimatedTime": 15,
+        "criteria": {
+          "type": "measurement",
+          "key": "precessionAngle",
+          "target": 1.5708,
+          "tolerance": 0.3
+        }
+      }
+    ],
+    "nascar_banking": [
+      {
+        "id": "find-optimal-speed",
+        "name": "Find Optimal Speed",
+        "description": "Discover the speed where no friction is needed to stay on track",
+        "difficulty": "beginner",
+        "estimatedTime": 5,
+        "criteria": {
+          "type": "measurement",
+          "key": "frictionForce",
+          "target": 0,
+          "tolerance": 50
+        }
+      },
+      {
+        "id": "explore-angles",
+        "name": "Explore Bank Angles",
+        "description": "Test how different banking angles affect required speed",
+        "difficulty": "intermediate",
+        "estimatedTime": 10,
+        "criteria": {
+          "type": "parameter_exploration",
+          "parameter": "bankAngle",
+          "minChanges": 5
+        }
+      },
+      {
+        "id": "complete-lap",
+        "name": "Complete a Lap",
+        "description": "Successfully navigate one full lap around the track",
+        "difficulty": "beginner",
+        "estimatedTime": 3,
+        "criteria": {
+          "type": "measurement",
+          "key": "lapCount",
+          "target": 1,
+          "tolerance": 0.1
+        }
+      }
+    ],
+    "millikan_oil_drop": [
+      {
+        "id": "balance-droplet",
+        "name": "Balance a Droplet",
+        "description": "Adjust the electric field to suspend a droplet in mid-air",
+        "difficulty": "intermediate",
+        "estimatedTime": 5,
+        "criteria": {
+          "type": "measurement",
+          "key": "dropletVelocity",
+          "target": 0,
+          "tolerance": 0.001
+        }
+      },
+      {
+        "id": "measure-charge",
+        "name": "Measure Elementary Charge",
+        "description": "Measure the charge on multiple droplets",
+        "difficulty": "advanced",
+        "estimatedTime": 15,
+        "criteria": {
+          "type": "measurement",
+          "key": "chargesMeasured",
+          "target": 5,
+          "tolerance": 1
+        }
+      },
+      {
+        "id": "find-quantization",
+        "name": "Discover Charge Quantization",
+        "description": "Observe that all charges are integer multiples of e",
+        "difficulty": "advanced",
+        "estimatedTime": 20,
+        "criteria": {
+        "type": "measurement",
+        "key": "quantizationConfidence",
+        "target": 0.9,
+        "tolerance": 0.1
+      }
+    }
+  ],
+  "young_double_slit": [
+    {
+      "id": "observe-interference",
+      "name": "Observe Interference Pattern",
+      "description": "See the characteristic bright and dark fringes",
+      "difficulty": "beginner",
+      "estimatedTime": 3,
+      "criteria": {
+        "type": "time_spent",
+        "duration": 30
+      }
+    },
+    {
+      "id": "vary-wavelength",
+      "name": "Vary Wavelength",
+      "description": "Change the wavelength and observe pattern changes",
+      "difficulty": "intermediate",
+      "estimatedTime": 10,
+      "criteria": {
+        "type": "parameter_exploration",
+        "parameter": "wavelength",
+        "minChanges": 5
+      }
+    },
+    {
+      "id": "understand-wave-particle",
+      "name": "Wave-Particle Duality",
+      "description": "Understand how light behaves as both wave and particle",
+      "difficulty": "advanced",
+      "estimatedTime": 15,
+      "criteria": {
+        "type": "measurement",
+        "key": "fringesObserved",
+        "target": 10,
+        "tolerance": 3
+      }
+    }
+  ],
+  "rutherford_gold_foil": [
+    {
+      "id": "observe-scattering",
+      "name": "Observe Alpha Scattering",
+      "description": "Watch alpha particles deflect off gold nuclei",
+      "difficulty": "beginner",
+      "estimatedTime": 5,
+      "criteria": {
+        "type": "measurement",
+        "key": "particlesDetected",
+        "target": 100,
+        "tolerance": 20
+      }
+    },
+    {
+      "id": "large-angle-scattering",
+      "name": "Large-Angle Scattering",
+      "description": "Observe rare large-angle deflections",
+      "difficulty": "intermediate",
+      "estimatedTime": 10,
+      "criteria": {
+        "type": "measurement",
+        "key": "largeAngleCount",
+        "target": 5,
+        "tolerance": 2
+      }
+    },
+    {
+      "id": "understand-nucleus",
+      "name": "Nuclear Model Understanding",
+      "description": "Understand why most particles pass through undeflected",
+      "difficulty": "advanced",
+      "estimatedTime": 15,
+      "criteria": {
+        "type": "time_spent",
+        "duration": 60
+      }
+    }
+  ]
+}

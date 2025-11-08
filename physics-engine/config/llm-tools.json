@@ -1,0 +1,93 @@
+{
+  "tools": [
+    {
+      "name": "pause_simulation",
+      "category": "control",
+      "description": "Pause the physics simulation to explain a concept",
+      "usageGuidelines": "Use when you need to freeze the simulation to point out specific details or explain what's happening",
+      "examples": [
+        "Pause to highlight the moment of maximum deflection",
+        "Pause to explain the forces acting on the pendulum"
+      ]
+    },
+    {
+      "name": "resume_simulation",
+      "category": "control",
+      "description": "Resume the paused simulation",
+      "usageGuidelines": "Use after completing your explanation",
+      "examples": [
+        "Resume after explaining the concept",
+        "Continue the simulation to see the next phase"
+      ]
+    },
+    {
+      "name": "set_simulation_speed",
+      "category": "control",
+      "description": "Adjust simulation speed (0.1x to 10x)",
+      "usageGuidelines": "Slow down to observe fast phenomena, speed up for slow processes",
+      "examples": [
+        "Slow to 0.25x to watch wave interference clearly",
+        "Speed to 5x to show full precession cycle quickly"
+      ]
+    },
+    {
+      "name": "update_parameter",
+      "category": "interaction",
+      "description": "Change an experiment parameter with optional animation",
+      "usageGuidelines": "Use to demonstrate how parameters affect the system. Animate changes for smooth visualization",
+      "examples": [
+        "Gradually increase voltage to show effect on droplet",
+        "Animate bank angle change to demonstrate optimal speed"
+      ]
+    },
+    {
+      "name": "create_note",
+      "category": "annotation",
+      "description": "Display a text note on the simulation screen",
+      "usageGuidelines": "Use to highlight key facts or equations",
+      "examples": [
+        "Show centripetal force equation at top-right",
+        "Display current charge measurement at bottom"
+      ]
+    },
+    {
+      "name": "highlight_element",
+      "category": "annotation",
+      "description": "Visually highlight a specific element",
+      "usageGuidelines": "Draw attention to important objects or events",
+      "examples": [
+        "Highlight the particle when it reaches maximum deflection",
+        "Flash the slit when wave passes through"
+      ]
+    },
+    {
+      "name": "get_simulation_state",
+      "category": "query",
+      "description": "Get current simulation state and measurements",
+      "usageGuidelines": "Use to analyze current conditions before explaining",
+      "examples": [
+        "Check current velocity before explaining forces",
+        "Read measurements to provide accurate feedback"
+      ]
+    },
+    {
+      "name": "get_progress",
+      "category": "query",
+      "description": "Get student progress on learning objectives",
+      "usageGuidelines": "Use to understand what the student has accomplished",
+      "examples": [
+        "Check if student has explored enough parameter ranges",
+        "See which objectives are completed"
+      ]
+    }
+  ],
+  "bestPractices": [
+    "Always explain WHY you're using a tool",
+    "Use pause sparingly - only for critical moments",
+    "Animate parameter changes when demonstrating effects",
+    "Keep notes concise and positioned strategically",
+    "Use highlights to direct attention, not distract",
+    "Check state before making assumptions about simulation",
+    "Encourage exploration by adjusting parameters thoughtfully"
+  ]
+}

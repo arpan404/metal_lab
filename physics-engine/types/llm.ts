@@ -4,43 +4,56 @@ export interface LLMTool {
     name: string;
     description: string;
     parameters: {
-      type: string;
+      type: 'object';
       properties: Record<string, any>;
       required?: string[];
     };
-    handler: (args: any) => any | Promise<any>;
+    handler: (args: any) => Promise<any> | any;
   }
   
   export interface LLMExplanation {
     id: string;
-    type: 'concept' | 'milestone' | 'hint' | 'warning';
+    type: 'concept' | 'observation' | 'warning' | 'achievement';
     priority: 'low' | 'medium' | 'high';
-    context: {
-      experimentName: string;
-      parameters: [string, number][];
-      measurements: Record<string, number>;
-      timestamp: number;
-    };
+    context: ExplanationContext;
     message: string;
     audioRequired: boolean;
     pauseSimulation: boolean;
   }
   
-  export interface LLMContext {
-    experiment: string;
-    state: any;
-    progress: number;
-    objectives: any[];
-    history: any[];
+  export interface ExplanationContext {
+    experimentName: string;
+    parameters: Array<[string, number]>;
+    measurements: Record<string, number>;
+    timestamp: number;
   }
   
-  export interface LLMResponse {
-    message: string;
-    tools?: LLMToolCall[];
-    explanations?: LLMExplanation[];
+  export interface LLMCallbacks {
+    onExplanation?: (explanation: LLMExplanation) => void;
+    onPause?: () => void;
+    onResume?: () => void;
+    onParameterChange?: (parameter: string, value: number) => void;
+    onHighlight?: (element: string, color: string, duration: number) => void;
+    onNote?: (text: string, position: string, duration: number) => void;
   }
   
-  export interface LLMToolCall {
-    tool: string;
-    arguments: Record<string, any>;
+  export interface LLMToolResult {
+    success: boolean;
+    action?: string;
+    data?: any;
+    error?: string;
+  }
+  
+  export interface LLMMessage {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    timestamp?: number;
+  }
+  
+  export interface LLMConversation {
+    id: string;
+    experimentName: string;
+    messages: LLMMessage[];
+    startTime: number;
+    endTime?: number;
   }

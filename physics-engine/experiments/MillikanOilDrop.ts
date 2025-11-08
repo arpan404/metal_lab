@@ -1,134 +1,97 @@
 // physics-engine/experiments/MillikanOilDrop.ts
 import { BaseExperiment } from './BaseExperiment';
 import { ElectricFieldEngine } from '../engines/ElectricFieldEngine';
-import type { 
-  ExperimentState, 
-  ParameterConfig, 
-  LearningObjective,
-  ExplanationPoint 
-} from '../types';
+import type {
+  ExperimentState,
+  ExplanationPoint
+} from '../types/experiments';
+
+import type { ParameterConfig, LearningObjective, ChargedParticle } from '../types/index';
 
 export class MillikanOilDrop extends BaseExperiment {
   private electricEngine: ElectricFieldEngine;
+  private droplets: Map<string, ChargedParticle> = new Map();
+  private nextDropletId: number = 0;
   
-  // Oil drops
-  private oilDrops: OilDrop[] = [];
-  private selectedDropId: string | null = null;
+  private plateVoltage: number = 5000; // volts
+  private plateSeparation: number = 0.01; // meters
+  private fieldStrength: number = 0;
   
-  // Measurements
   private measuredCharges: number[] = [];
-  private elementaryChargeEstimate: number = 0;
   
   constructor() {
     const parameters: ParameterConfig[] = [
       {
-        name: 'electricField',
-        label: 'Electric Field',
-        default: 0,
-        min: -100000,
-        max: 100000,
-        step: 1000,
-        unit: 'V/m',
-        description: 'Voltage between plates'
+        name: 'voltage',
+        label: 'Plate Voltage',
+        min: 0,
+        max: 10000,
+        default: 5000,
+        step: 100,
+        unit: 'V',
+        description: 'Voltage across parallel plates'
       },
       {
-        name: 'plateSpacing',
-        label: 'Plate Spacing',
-        default: 0.01,
+        name: 'plateSeparation',
+        label: 'Plate Separation',
         min: 0.005,
-        max: 0.02,
+        max: 0.05,
+        default: 0.01,
         step: 0.001,
         unit: 'm',
         description: 'Distance between parallel plates'
       },
       {
-        name: 'airViscosity',
-        label: 'Air Viscosity',
-        default: 1.8e-5,
-        min: 1.5e-5,
-        max: 2.1e-5,
-        step: 1e-6,
-        unit: 'Pa⋅s',
-        description: 'Viscosity of air'
-      },
-      {
-        name: 'xrayIntensity',
-        label: 'X-ray Intensity',
-        default: 0,
-        min: 0,
-        max: 10,
-        step: 1,
-        description: 'Ionization intensity (adds/removes electrons)'
+        name: 'dropletRadius',
+        label: 'Droplet Radius',
+        min: 0.5e-6,
+        max: 5e-6,
+        default: 1e-6,
+        step: 0.1e-6,
+        unit: 'µm',
+        description: 'Radius of oil droplet'
       }
     ];
     
     const objectives: LearningObjective[] = [
       {
-        id: 'balance_drop',
-        name: 'Balance a Drop',
-        description: 'Balance an oil drop by adjusting the electric field',
-        criteria: {
-          type: 'custom',
-          customCheck: (state) => {
-            const data = state.customData as any;
-            return data?.balancedDrops > 0;
-          }
-        },
-        hint: 'Adjust the field until a drop hovers motionless',
-        points: 20
-      },
-      {
-        id: 'measure_charges',
-        name: 'Measure Multiple Charges',
-        description: 'Measure the charge on at least 5 different drops',
+        id: 'balance-droplet',
+        name: 'Balance a Droplet',
+        description: 'Adjust voltage to suspend a droplet in mid-air',
         criteria: {
           type: 'measurement',
-          key: 'measuredCharges',
+          key: 'dropletVelocity',
+          target: 0,
+          tolerance: 0.001
+        }
+      },
+      {
+        id: 'measure-charge',
+        name: 'Measure Elementary Charge',
+        description: 'Measure charges on multiple droplets',
+        criteria: {
+          type: 'measurement',
+          key: 'chargesMeasured',
           target: 5,
-          tolerance: 0
-        },
-        hint: 'Balance different drops and record their charges',
-        points: 25
+          tolerance: 1
+        }
       },
       {
-        id: 'find_pattern',
-        name: 'Find the Pattern',
-        description: 'Discover that charges are quantized',
-        criteria: {
-          type: 'custom',
-          customCheck: (state) => {
-            const data = state.customData as any;
-            const charges = data?.measuredCharges || [];
-            if (charges.length < 3) return false;
-            
-            // Check if charges are multiples of smallest
-            const minCharge = Math.min(...charges.map(Math.abs).filter(c => c > 0));
-            const multiples = charges.map(c => Math.round(Math.abs(c) / minCharge));
-            
-            return multiples.every(m => m >= 1 && m <= 10);
-          }
-        },
-        hint: 'Look for a common factor in all measured charges',
-        points: 30
-      },
-      {
-        id: 'elementary_charge',
-        name: 'Find Elementary Charge',
-        description: 'Determine the fundamental unit of charge',
+        id: 'find-quantization',
+        name: 'Discover Charge Quantization',
+        description: 'Observe that all charges are multiples of e',
         criteria: {
           type: 'measurement',
-          key: 'elementaryChargeAccuracy',
+          key: 'quantizationConfidence',
           target: 0.9,
           tolerance: 0.1
-        },
-        hint: 'The smallest common factor is the elementary charge e',
-        points: 40
+        }
       }
     ];
     
     super(
       'Millikan Oil Drop',
-      'Measure the fundamental unit of electric charge',
+      'Measure the elementary charge by balancing charged oil droplets',
       parameters,
       objectives
     );
@@ -137,8 +100,55 @@ export class MillikanOilDrop extends BaseExperiment {
   }
   
   async initialize(): Promise<void> {
-    this.reset();
-    this.sprayOilDrops();
+    this.plateVoltage = this.getParameter('voltage');
+    this.plateSeparation = this.getParameter('plateSeparation');
+    
+    // Calculate electric field: E = V/d
+    this.fieldStrength = this.plateVoltage / this.plateSeparation;
+    
+    // Set uniform electric field (pointing upward)
+    this.electricEngine.setUniformField({
+      x: 0,
+      y: this.fieldStrength,
+      z: 0
+    });
+    
+    // Create initial droplet
+    this.createDroplet();
+    
+    this.startTime = Date.now();
+  }
+  
+  private createDroplet(): void {
+    const radius = this.getParameter('dropletRadius');
+    const oilDensity = 900; // kg/m³
+    const volume = (4/3) * Math.PI * Math.pow(radius, 3);
+    const mass = oilDensity * volume;
+    
+    // Random charge (integer multiple of e)
+    const e = 1.602e-19; // Elementary charge
+    const chargeMultiple = Math.floor(Math.random() * 10) + 1;
+    const charge = -chargeMultiple * e; // Negative (electrons)
+    
+    const droplet: ChargedParticle = {
+      position: {
+        x: 0,
+        y: this.plateSeparation / 2,
+        z: 0
+      },
+      velocity: {
+        x: 0,
+        y: 0,
+        z: 0
+      },
+      mass,
+      charge,
+      radius
+    };
+    
+    const id = `droplet-${this.nextDropletId++}`;
+    this.electricEngine.addParticle(id, droplet);
+    this.droplets.set(id, droplet);
   }
   
   update(deltaTime: number): void {
@@ -146,306 +156,176 @@ export class MillikanOilDrop extends BaseExperiment {
     this.frameCount++;
     
     // Update electric field
-    const fieldStrength = this.getParameter('electricField');
-    const plateSpacing = this.getParameter('plateSpacing');
-    
-    this.electricEngine.setUniformField({
-      x: 0,
-      y: fieldStrength,
-      z: 0
-    });
-    
-    // Update oil drops
     this.electricEngine.step(deltaTime);
-    this.updateOilDrops(deltaTime);
     
-    // Apply X-ray ionization
-    this.applyXrayIonization();
+    // Check if any droplets have left the chamber
+    this.droplets.forEach((droplet, id) => {
+      if (droplet.position.y < 0 || droplet.position.y > this.plateSeparation) {
+        this.electricEngine.removeParticle(id);
+        this.droplets.delete(id);
+      }
+    });
     
-    // Check for balanced drops
-    this.checkBalancedDrops();
-    
-    // Remove drops that have fallen out of view
-    this.cleanupDrops();
-  }
-  
-  private sprayOilDrops(): void {
-    // Create initial oil drops
-    for (let i = 0; i < 20; i++) {
-      this.createOilDrop();
-    }
-  }
-  
-  private createOilDrop(): void {
-    // Random oil drop properties
-    const radius = (0.5 + Math.random() * 2) * 1e-6; // 0.5-2.5 μm
-    const density = 900; // kg/m³ (oil density)
-    const volume = (4/3) * Math.PI * radius ** 3;
-    const mass = density * volume;
-    
-    // Random charge (multiple of elementary charge)
-    const elementaryCharge = 1.602e-19;
-    const chargeMultiple = Math.floor(Math.random() * 5) - 2; // -2 to +2 e
-    const charge = chargeMultiple * elementaryCharge;
-    
-    const drop: OilDrop = {
-      id: `drop_${Date.now()}_${Math.random()}`,
-      position: {
-        x: (Math.random() - 0.5) * 0.01,
-        y: 0.005 + Math.random() * 0.005,
-        z: (Math.random() - 0.5) * 0.01
-      },
-      velocity: {
-        x: (Math.random() - 0.5) * 0.0001,
-        y: -0.0001,
-        z: (Math.random() - 0.5) * 0.0001
-      },
-      mass,
-      charge,
-      radius,
-      isBalanced: false,
-      balanceTime: 0,
-      chargeHistory: [charge]
-    };
-    
-    this.oilDrops.push(drop);
-    this.electricEngine.addParticle(drop.id, drop);
-  }
-  
-  private updateOilDrops(deltaTime: number): void {
-    this.oilDrops.forEach(drop => {
-      // Get updated particle from engine
-      const particle = this.electricEngine.getParticle(drop.id);
-      if (particle) {
-        drop.position = { ...particle.position };
-        drop.velocity = { ...particle.velocity };
-        drop.charge = particle.charge;
-        
-        // Check if drop is balanced (hovering)
-        const speed = Math.sqrt(
-          drop.velocity.x ** 2 + 
-          drop.velocity.y ** 2 + 
-          drop.velocity.z ** 2
-        );
-        
-        if (speed < 0.00001) { // Less than 0.01 mm/s
-          if (!drop.isBalanced) {
-            drop.isBalanced = true;
-            drop.balanceTime = this.elapsedTime;
-            this.onDropBalanced(drop);
-          }
-        } else {
-          drop.isBalanced = false;
-          drop.balanceTime = 0;
-        }
+    // Sync droplet data
+    this.droplets.forEach((_, id) => {
+      const updated = this.electricEngine.getParticle(id);
+      if (updated) {
+        this.droplets.set(id, updated);
       }
     });
   }
   
-  private applyXrayIonization(): void {
-    const intensity = this.getParameter('xrayIntensity');
-    if (intensity === 0) return;
+  measureDropletCharge(dropletId: string): number | null {
+    const droplet = this.droplets.get(dropletId);
+    if (!droplet) return null;
     
-    // Randomly ionize drops
-    this.oilDrops.forEach(drop => {
-      if (Math.random() < intensity * 0.001) {
-        const elementaryCharge = 1.602e-19;
-        
-        // Add or remove an electron
-        if (Math.random() < 0.5) {
-          drop.charge -= elementaryCharge; // Gain electron
-        } else {
-          drop.charge += elementaryCharge; // Lose electron
-        }
-        
-        drop.chargeHistory.push(drop.charge);
-        
-        // Update in engine
-        const particle = this.electricEngine.getParticle(drop.id);
-        if (particle) {
-          particle.charge = drop.charge;
-        }
-      }
-    });
+    // Calculate charge from balancing equation: qE = mg
+    const balancingField = this.electricEngine.calculateBalancingField(droplet);
+    const charge = (droplet.mass * 9.81) / balancingField;
+    
+    this.measuredCharges.push(Math.abs(charge));
+    return charge;
   }
   
-  private checkBalancedDrops(): void {
-    const fieldStrength = this.getParameter('electricField');
+  private calculateQuantizationConfidence(): number {
+    if (this.measuredCharges.length < 3) return 0;
     
-    this.oilDrops.forEach(drop => {
-      if (drop.isBalanced && fieldStrength !== 0) {
-        // Calculate charge from balance condition: qE = mg
-        const calculatedCharge = (drop.mass * 9.81) / fieldStrength;
-        
-        // Only record if this is a new measurement
-        if (!this.measuredCharges.includes(calculatedCharge)) {
-          this.measuredCharges.push(calculatedCharge);
-          this.estimateElementaryCharge();
-        }
-      }
-    });
-  }
-  
-  private estimateElementaryCharge(): void {
-    if (this.measuredCharges.length < 2) return;
+    // Check if all charges are approximately integer multiples of e
+    const e = 1.602e-19;
+    let matches = 0;
     
-    // Find GCD of all measured charges (simplified)
-    const charges = this.measuredCharges.map(Math.abs).filter(c => c > 0);
-    if (charges.length === 0) return;
-    
-    // Simple GCD estimation
-    const minCharge = Math.min(...charges);
-    const actualElementaryCharge = 1.602e-19;
-    
-    // Round to nearest multiple of actual e
-    const multiple = Math.round(minCharge / actualElementaryCharge);
-    if (multiple > 0) {
-      this.elementaryChargeEstimate = minCharge / multiple;
-    }
-  }
-  
-  private onDropBalanced(drop: OilDrop): void {
-    console.log(`Drop balanced! Charge: ${drop.charge} C`);
-    
-    // Record the measurement
-    const fieldStrength = this.getParameter('electricField');
-    if (fieldStrength !== 0) {
-      const measuredCharge = (drop.mass * 9.81) / fieldStrength;
+    this.measuredCharges.forEach(charge => {
+      const ratio = charge / e;
+      const nearest = Math.round(ratio);
+      const error = Math.abs(ratio - nearest) / nearest;
       
-      if (!this.measuredCharges.includes(measuredCharge)) {
-        this.measuredCharges.push(measuredCharge);
-      }
-    }
-  }
-  
-  private cleanupDrops(): void {
-    // Remove drops that have fallen too far
-    this.oilDrops = this.oilDrops.filter(drop => {
-      if (drop.position.y < -0.01 || drop.position.y > 0.02) {
-        this.electricEngine.removeParticle(drop.id);
-        return false;
-      }
-      return true;
+      if (error < 0.1) matches++;
     });
     
-    // Add new drops if needed
-    while (this.oilDrops.length < 10) {
-      this.createOilDrop();
-    }
-  }
-  
-  selectDrop(dropId: string): void {
-    this.selectedDropId = dropId;
+    return matches / this.measuredCharges.length;
   }
   
   reset(): void {
+    this.electricEngine.reset();
+    this.droplets.clear();
+    this.measuredCharges = [];
+    this.nextDropletId = 0;
     this.elapsedTime = 0;
     this.frameCount = 0;
-    this.oilDrops = [];
-    this.measuredCharges = [];
-    this.elementaryChargeEstimate = 0;
-    this.selectedDropId = null;
-    this.electricEngine.reset();
-    this.startTime = Date.now();
+    this.initialize();
   }
   
   getState(): ExperimentState {
-    const balancedDrops = this.oilDrops.filter(d => d.isBalanced).length;
-    const actualElementaryCharge = 1.602e-19;
-    const accuracy = this.elementaryChargeEstimate > 0 
-      ? 1 - Math.abs(this.elementaryChargeEstimate - actualElementaryCharge) / actualElementaryCharge
-      : 0;
-    
     return {
       name: this.name,
-      elapsedTime: this.elapsedTime,
-      frameCount: this.frameCount,
-      parameters: Array.from(this.parameters.entries()),
+      parameters: Object.fromEntries(this.parameters),
       measurements: this.getMeasurements(),
-      customData: {
-        oilDrops: this.oilDrops.length,
-        balancedDrops,
-        measuredCharges: [...this.measuredCharges],
-        elementaryChargeEstimate: this.elementaryChargeEstimate,
-        elementaryChargeAccuracy: accuracy,
-        selectedDropId: this.selectedDropId
-      }
+      objects: Array.from(this.droplets.entries()).map(([id, droplet]) => ({
+        id,
+        position: droplet.position,
+        velocity: droplet.velocity,
+        charge: droplet.charge,
+        mass: droplet.mass
+      })),
+      elapsedTime: this.elapsedTime,
+      frameCount: this.frameCount
     };
   }
   
   setState(state: ExperimentState): void {
+    Object.entries(state.parameters).forEach(([key, value]) => {
+      this.parameters.set(key, value as number);
+    });
+    
     this.elapsedTime = state.elapsedTime;
     this.frameCount = state.frameCount;
     
-    state.parameters.forEach(([key, value]) => {
-      this.parameters.set(key, value);
+    // Restore droplets
+    this.droplets.clear();
+    state.objects.forEach(obj => {
+      const droplet: ChargedParticle = {
+        position: obj.position,
+        velocity: obj.velocity,
+        mass: obj.mass ?? 1e-15,
+        charge: obj.charge ?? -1.602e-19,
+        radius: 1e-6
+      };
+      
+      this.electricEngine.addParticle(obj.id, droplet);
+      this.droplets.set(obj.id, droplet);
     });
-    
-    if (state.customData) {
-      this.measuredCharges = state.customData.measuredCharges || [];
-      this.elementaryChargeEstimate = state.customData.elementaryChargeEstimate || 0;
-      this.selectedDropId = state.customData.selectedDropId || null;
-    }
   }
   
   getExplanationPoints(): ExplanationPoint[] {
     return [
       {
-        id: 'drops_falling',
+        id: 'intro',
         type: 'concept',
-        condition: 'elapsedTime > 2',
-        message: 'The oil drops fall due to gravity. But if they have electric charge, the electric field can push them up!',
-        priority: 'low',
-        audioRequired: false,
+        priority: 'high',
+        condition: 'elapsedTime < 2',
+        message: 'In the Millikan oil drop experiment, we measure the charge of tiny oil droplets by balancing electric and gravitational forces.',
+        audioRequired: true,
+        pauseSimulation: true
+      },
+      {
+        id: 'first-balance',
+        type: 'achievement',
+        priority: 'high',
+        condition: 'dropletVelocity < 0.001 && dropletVelocity > -0.001',
+        message: 'Perfect! You\'ve balanced a droplet. The electric force exactly cancels gravity. Now you can calculate its charge!',
+        audioRequired: true,
         pauseSimulation: false
       },
       {
-        id: 'first_balance',
-        type: 'milestone',
-        condition: 'balancedDrops > 0',
-        message: 'Excellent! You\'ve balanced a drop! When qE = mg, we can calculate the charge from the field strength.',
-        priority: 'high',
-        audioRequired: true,
-        pauseSimulation: true,
-        highlight: ['balanced_drop']
-      },
-      {
-        id: 'charge_quantization',
+        id: 'quantization-observed',
         type: 'concept',
-        condition: 'measuredCharges > 3',
-        message: 'Notice something? All the charges are multiples of a smallest value. Charge is quantized!',
         priority: 'high',
+        condition: 'quantizationConfidence > 0.8',
+        message: 'Amazing! Notice that all measured charges are integer multiples of the same value. This is the elementary charge!',
         audioRequired: true,
-        pauseSimulation: false
+        pauseSimulation: true
       }
     ];
   }
   
   getMeasurements(): Record<string, number> {
-    const balancedDrops = this.oilDrops.filter(d => d.isBalanced).length;
+    const firstDroplet = this.droplets.values().next().value as ChargedParticle | undefined;
     
     return {
       elapsedTime: this.elapsedTime,
-      oilDropCount: this.oilDrops.length,
-      balancedDrops,
-      measuredCharges: this.measuredCharges.length,
-      electricField: this.getParameter('electricField'),
-      elementaryChargeEstimate: this.elementaryChargeEstimate,
-      elementaryChargeAccuracy: this.elementaryChargeEstimate > 0 
-        ? 1 - Math.abs(this.elementaryChargeEstimate - 1.602e-19) / 1.602e-19
-        : 0
+      fieldStrength: this.fieldStrength,
+      dropletCount: this.droplets.size,
+      chargesMeasured: this.measuredCharges.length,
+      dropletVelocity: firstDroplet ? firstDroplet.velocity.y : 0,
+      quantizationConfidence: this.calculateQuantizationConfidence(),
+      voltage_changes: this.parameterHistory?.get('voltage')?.length ?? 0
     };
   }
-}
-
-interface OilDrop {
-  id: string;
-  position: { x: number; y: number; z: number };
-  velocity: { x: number; y: number; z: number };
-  mass: number;
-  charge: number;
-  radius: number;
-  isBalanced: boolean;
-  balanceTime: number;
-  chargeHistory: number[];
+  
+  protected onParameterChanged(key: string, value: number): void {
+    if (key === 'voltage') {
+      this.plateVoltage = value;
+      this.fieldStrength = this.plateVoltage / this.plateSeparation;
+      
+      this.electricEngine.setUniformField({
+        x: 0,
+        y: this.fieldStrength,
+        z: 0
+      });
+    } else if (key === 'plateSeparation') {
+      this.plateSeparation = value;
+      this.fieldStrength = this.plateVoltage / this.plateSeparation;
+      
+      this.electricEngine.setUniformField({
+        x: 0,
+        y: this.fieldStrength,
+        z: 0
+      });
+    }
+  }
+  
+  // Public method to spawn new droplet
+  spawnDroplet(): void {
+    this.createDroplet();
+  }
 }

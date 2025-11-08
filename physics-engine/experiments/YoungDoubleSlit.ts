@@ -1,370 +1,296 @@
 // physics-engine/experiments/YoungDoubleSlit.ts
-import * as THREE from 'three';
-import { WaveEngine, WaveParameters } from '../engines/WaveEngine';
+import { BaseExperiment } from './BaseExperiment';
 import { QuantumEngine } from '../engines/QuantumEngine';
-import { WaveFieldVisualizer } from '../visualizers/WaveFieldVisualizer';
-import { SimulationState } from '../core/SimulationState';
-import { ProgressTracker } from '../core/ProgressTracker';
+import type {
+  ParameterConfig,
+  LearningObjective
+} from '../types';
 
-export interface DoubleSlitConfig {
-  wavelength: number;
-  slitSeparation: number;
-  slitWidth: number;
-  screenDistance: number;
-  useQuantum: boolean;
-  particleMode: boolean;
-}
+import type { ExperimentState, ExplanationPoint } from '../types/experiments';
 
-export class YoungDoubleSlit {
-  private scene: THREE.Scene;
-  private waveEngine: WaveEngine | null = null;
-  private quantumEngine: QuantumEngine | null = null;
-  private visualizer: WaveFieldVisualizer | null = null;
-  private state: SimulationState;
-  private progress: ProgressTracker;
-  private config: DoubleSlitConfig;
-  private isRunning: boolean = false;
+export class YoungDoubleSlit extends BaseExperiment {
+  private quantumEngine: QuantumEngine;
   
-  // Experiment-specific metrics
-  private totalPhotons: number = 0;
-  private detectedPhotons: number = 0;
+  private gridSize: number = 512;
+  private wavelength: number = 650e-9; // red light (nanometers)
+  private slitSeparation: number = 0.0001; // 0.1 mm
+  private slitWidth: number = 0.00002; // 0.02 mm
+  
+  private waveField: Float32Array;
   private interferencePattern: Float32Array;
   
-  constructor(scene: THREE.Scene, config: DoubleSlitConfig) {
-    this.scene = scene;
-    this.config = config;
-    this.state = new SimulationState('young-double-slit');
-    this.progress = new ProgressTracker([
-      'setup',
-      'wave-propagation',
-      'interference-formation',
-      'pattern-analysis',
-      'complete'
-    ]);
-    this.interferencePattern = new Float32Array(256);
+  constructor() {
+    const parameters: ParameterConfig[] = [
+      {
+        name: 'wavelength',
+        label: 'Wavelength',
+        min: 400e-9,
+        max: 700e-9,
+        default: 650e-9,
+        step: 10e-9,
+        unit: 'nm',
+        description: 'Wavelength of light (400nm = violet, 700nm = red)'
+      },
+      {
+        name: 'slitSeparation',
+        label: 'Slit Separation',
+        min: 0.00005,
+        max: 0.0005,
+        default: 0.0001,
+        step: 0.00001,
+        unit: 'm',
+        description: 'Distance between the two slits'
+      },
+      {
+        name: 'slitWidth',
+        label: 'Slit Width',
+        min: 0.00001,
+        max: 0.0001,
+        default: 0.00002,
+        step: 0.000005,
+        unit: 'm',
+        description: 'Width of each slit'
+      }
+    ];
+    
+    const objectives: LearningObjective[] = [
+      {
+        id: 'observe-interference',
+        name: 'Observe Interference',
+        description: 'See the characteristic interference pattern',
+        criteria: {
+          type: 'time_spent',
+          duration: 30
+        }
+      },
+      {
+        id: 'vary-wavelength',
+        name: 'Vary Wavelength',
+        description: 'Change wavelength and observe pattern changes',
+        criteria: {
+          type: 'parameter_exploration',
+          parameter: 'wavelength',
+          minChanges: 5
+        }
+      },
+      {
+        id: 'understand-wave-particle',
+        name: 'Wave-Particle Duality',
+        description: 'Understand how light behaves as both wave and particle',
+        criteria: {
+          type: 'measurement',
+          key: 'fringesObserved',
+          target: 10,
+          tolerance: 3
+        }
+      }
+    ];
+    
+    super(
+      'Young\'s Double Slit',
+      'Demonstrates wave-particle duality through light interference',
+      parameters,
+      objectives
+    );
+    
+    this.quantumEngine = new QuantumEngine();
+    this.waveField = new Float32Array(this.gridSize * this.gridSize * 4);
+    this.interferencePattern = new Float32Array(this.gridSize);
   }
   
   async initialize(): Promise<void> {
-    this.progress.markComplete('setup');
+    await this.quantumEngine.initialize();
     
-    if (this.config.useQuantum) {
-      // Use WebGPU quantum engine for more accurate simulation
-      this.quantumEngine = new QuantumEngine();
-      await this.quantumEngine.initialize();
-    } else {
-      // Use classical wave engine
-      const waveParams: WaveParameters = {
-        wavelength: this.config.wavelength,
-        speed: 3e8, // Speed of light
-        medium: 'vacuum',
-        gridResolution: 256,
-        timeStep: 1e-15
-      };
-      this.waveEngine = new WaveEngine(waveParams);
-      this.waveEngine.setupDoubleSlit(
-        this.config.slitSeparation,
-        this.config.slitWidth
-      );
-    }
+    this.wavelength = this.getParameter('wavelength');
+    this.slitSeparation = this.getParameter('slitSeparation');
+    this.slitWidth = this.getParameter('slitWidth');
     
-    // Create visualizer
-    if (this.waveEngine) {
-      this.visualizer = new WaveFieldVisualizer(
-        this.scene,
-        this.waveEngine,
-        {
-          colorScheme: 'rainbow',
-          show3D: false,
-          showIntensity: true,
-          gridSize: 256,
-          scale: 10
+    // Initialize wave field
+    this.initializeWaveField();
+    
+    this.startTime = Date.now();
+  }
+  
+  private initializeWaveField(): void {
+    // Create initial plane wave
+    for (let y = 0; y < this.gridSize; y++) {
+      for (let x = 0; x < this.gridSize; x++) {
+        const idx = (y * this.gridSize + x) * 4;
+        
+        // Initial amplitude (plane wave from left)
+        if (x < 10) {
+          this.waveField[idx] = Math.sin(y * 0.1); // amplitude
+          this.waveField[idx + 1] = 0; // phase
+          this.waveField[idx + 2] = 0; // velocity
+          this.waveField[idx + 3] = 0; // damping
+        } else {
+          this.waveField[idx] = 0;
+          this.waveField[idx + 1] = 0;
+          this.waveField[idx + 2] = 0;
+          this.waveField[idx + 3] = 0;
         }
-      );
+      }
     }
-    
-    // Add experiment apparatus to scene
-    this.createApparatus();
-  }
-  
-  private createApparatus(): void {
-    // Create barrier with slits
-    const barrierGeometry = new THREE.BoxGeometry(0.1, 5, 1);
-    const barrierMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x333333,
-      opacity: 0.8,
-      transparent: true
-    });
-    const barrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    barrier.position.set(-2, 0, 0);
-    this.scene.add(barrier);
-    
-    // Create slits (gaps in barrier)
-    const slitGeometry = new THREE.BoxGeometry(0.11, this.config.slitWidth, 1.1);
-    const slitMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0x000000,
-      opacity: 1
-    });
-    
-    const slit1 = new THREE.Mesh(slitGeometry, slitMaterial);
-    slit1.position.set(-2, this.config.slitSeparation / 2, 0);
-    this.scene.add(slit1);
-    
-    const slit2 = new THREE.Mesh(slitGeometry, slitMaterial);
-    slit2.position.set(-2, -this.config.slitSeparation / 2, 0);
-    this.scene.add(slit2);
-    
-    // Create detection screen
-    const screenGeometry = new THREE.PlaneGeometry(0.05, 5);
-    const screenMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0xffffff,
-      emissive: 0x111111
-    });
-    const screen = new THREE.Mesh(screenGeometry, screenMaterial);
-    screen.position.set(this.config.screenDistance, 0, 0);
-    this.scene.add(screen);
-    
-    // Add labels
-    this.addLabels();
-  }
-  
-  private addLabels(): void {
-    // This would add text labels for educational purposes
-    // Implementation depends on text rendering library used
-  }
-  
-  start(): void {
-    this.isRunning = true;
-    this.state.recordEvent({
-      type: 'experiment_started',
-      timestamp: Date.now(),
-      data: { config: this.config }
-    });
-  }
-  
-  pause(): void {
-    this.isRunning = false;
-    this.state.recordEvent({
-      type: 'experiment_paused',
-      timestamp: Date.now()
-    });
   }
   
   async update(deltaTime: number): Promise<void> {
-    if (!this.isRunning) return;
+    this.elapsedTime += deltaTime;
+    this.frameCount++;
     
-    if (this.config.particleMode) {
-      // Simulate individual photons
-      await this.updateParticleMode(deltaTime);
-    } else {
-      // Simulate continuous wave
-      await this.updateWaveMode(deltaTime);
-    }
+    // Compute wave evolution using WebGPU
+    this.waveField = await this.quantumEngine.computeWaveEvolution(
+      this.waveField,
+      {
+        gridSize: this.gridSize,
+        wavelength: this.wavelength,
+        dt: deltaTime,
+        slitSeparation: this.slitSeparation
+      }
+    );
     
-    // Update visualization
-    if (this.visualizer) {
-      this.visualizer.update();
-    }
-    
-    // Update progress
-    this.updateProgress();
+    // Calculate interference pattern at screen (right edge)
+    this.calculateInterferencePattern();
   }
   
-  private async updateWaveMode(deltaTime: number): Promise<void> {
-    if (this.waveEngine) {
-      this.waveEngine.update(deltaTime);
+  private calculateInterferencePattern(): void {
+    // Extract intensity at the detection screen (right edge)
+    const screenX = this.gridSize - 1;
+    
+    for (let y = 0; y < this.gridSize; y++) {
+      const idx = (y * this.gridSize + screenX) * 4;
+      const amplitude = this.waveField[idx];
       
-      // Get interference pattern
-      const pattern = this.waveEngine.getIntensityPattern();
-      this.analyzePattern(pattern);
-      
-    } else if (this.quantumEngine) {
-      // Use WebGPU quantum engine
-      const params = {
-        gridSize: 256,
-        wavelength: this.config.wavelength,
-        slitSeparation: this.config.slitSeparation,
-        dt: deltaTime
-      };
-      
-      const result = await this.quantumEngine.simulateWavePropagation(params);
-      this.analyzePattern(result);
+      // Intensity = |amplitude|²
+      this.interferencePattern[y] = amplitude * amplitude;
     }
   }
   
-  private async updateParticleMode(deltaTime: number): Promise<void> {
-    // Emit photons one at a time
-    const photonsPerSecond = 1000;
-    const photonsThisFrame = Math.floor(photonsPerSecond * deltaTime);
+  private countFringes(): number {
+    // Count peaks in interference pattern
+    let peakCount = 0;
+    const threshold = 0.1; // Minimum intensity for a peak
     
-    for (let i = 0; i < photonsThisFrame; i++) {
-      this.totalPhotons++;
+    for (let i = 1; i < this.gridSize - 1; i++) {
+      const current = this.interferencePattern[i];
+      const prev = this.interferencePattern[i - 1];
+      const next = this.interferencePattern[i + 1];
       
-      // Random y position through one of the slits
-      const slit = Math.random() < 0.5 ? 1 : -1;
-      const y = slit * this.config.slitSeparation / 2 + 
-                (Math.random() - 0.5) * this.config.slitWidth;
-      
-      // Calculate where photon hits the screen
-      const angle = this.calculateDiffraction(y);
-      const screenY = this.config.screenDistance * Math.tan(angle);
-      
-      // Update interference pattern histogram
-      const binIndex = Math.floor((screenY + 2.5) / 5 * 256);
-      if (binIndex >= 0 && binIndex < 256) {
-        this.interferencePattern[binIndex]++;
-        this.detectedPhotons++;
+      if (current > threshold && current > prev && current > next) {
+        peakCount++;
       }
     }
     
-    this.progress.updateStep('wave-propagation', 
-      this.detectedPhotons / 10000); // Target 10000 photons
+    return peakCount;
   }
   
-  private calculateDiffraction(y: number): number {
-    // Simplified diffraction calculation
-    const k = 2 * Math.PI / this.config.wavelength;
-    const pathDiff = Math.abs(y) * Math.sin(Math.atan(y / this.config.screenDistance));
-    const phase = k * pathDiff;
-    
-    // Add some quantum randomness
-    return phase + (Math.random() - 0.5) * 0.1;
-  }
-  
-  private analyzePattern(pattern: Float32Array): void {
-    // Find peaks and valleys in interference pattern
-    let peaks = 0;
-    let valleys = 0;
-    
-    for (let i = 1; i < pattern.length - 1; i++) {
-      if (pattern[i] > pattern[i-1] && pattern[i] > pattern[i+1]) {
-        peaks++;
-      }
-      if (pattern[i] < pattern[i-1] && pattern[i] < pattern[i+1]) {
-        valleys++;
-      }
-    }
-    
-    // Calculate fringe visibility
-    const maxIntensity = Math.max(...pattern);
-    const minIntensity = Math.min(...pattern);
-    const visibility = (maxIntensity - minIntensity) / (maxIntensity + minIntensity);
-    
-    this.state.recordMeasurement({
-      type: 'interference_analysis',
-      timestamp: Date.now(),
-      value: {
-        peaks,
-        valleys,
-        visibility,
-        averageIntensity: pattern.reduce((a, b) => a + b) / pattern.length
-      }
-    });
-    
-    this.progress.markComplete('interference-formation');
-    
-    if (visibility > 0.8) {
-      this.progress.markComplete('pattern-analysis');
-    }
-  }
-  
-  private updateProgress(): void {
-    if (this.progress.getOverallProgress() >= 0.8 && 
-        !this.progress.isStepComplete('complete')) {
-      this.progress.markComplete('complete');
-      this.onExperimentComplete();
-    }
-  }
-  
-  private onExperimentComplete(): void {
-    this.state.recordEvent({
-      type: 'experiment_completed',
-      timestamp: Date.now(),
-      data: {
-        totalPhotons: this.totalPhotons,
-        detectedPhotons: this.detectedPhotons,
-        pattern: Array.from(this.interferencePattern)
-      }
-    });
-  }
-  
-  // Methods for LLM integration
-  getExperimentState(): any {
-    return {
-      config: this.config,
-      progress: this.progress.getOverallProgress(),
-      currentStep: this.progress.getCurrentStep(),
-      measurements: this.state.getMeasurements(),
-      isRunning: this.isRunning,
-      photonStats: {
-        total: this.totalPhotons,
-        detected: this.detectedPhotons
-      }
-    };
-  }
-  
-  setParameter(param: string, value: number): void {
-    switch (param) {
-      case 'wavelength':
-        this.config.wavelength = value;
-        if (this.waveEngine) {
-          // Update wave engine parameters
-        }
-        break;
-      case 'slitSeparation':
-        this.config.slitSeparation = value;
-        if (this.waveEngine) {
-          this.waveEngine.setupDoubleSlit(value, this.config.slitWidth);
-        }
-        break;
-      case 'slitWidth':
-        this.config.slitWidth = value;
-        if (this.waveEngine) {
-          this.waveEngine.setupDoubleSlit(this.config.slitSeparation, value);
-        }
-        break;
-    }
-    
-    this.state.recordEvent({
-      type: 'parameter_changed',
-      timestamp: Date.now(),
-      data: { param, value }
-    });
+  private calculateFringeSpacing(): number {
+    // Theoretical: y = λL/d
+    // where L = distance to screen, d = slit separation
+    const L = 1.0; // 1 meter to screen
+    return (this.wavelength * L) / this.slitSeparation;
   }
   
   reset(): void {
-    this.isRunning = false;
-    this.totalPhotons = 0;
-    this.detectedPhotons = 0;
-    this.interferencePattern.fill(0);
-    
-    if (this.waveEngine) {
-      this.waveEngine.reset();
-    }
-    
-    this.state.reset();
-    this.progress.reset();
-    
-    this.state.recordEvent({
-      type: 'experiment_reset',
-      timestamp: Date.now()
-    });
+    this.waveField = new Float32Array(this.gridSize * this.gridSize * 4);
+    this.interferencePattern = new Float32Array(this.gridSize);
+    this.elapsedTime = 0;
+    this.frameCount = 0;
+    this.initializeWaveField();
   }
   
-  dispose(): void {
-    if (this.visualizer) {
-      this.visualizer.dispose();
-    }
+  getState(): ExperimentState {
+    return {
+      name: this.name,
+      parameters: Object.fromEntries(this.parameters),
+      measurements: this.getMeasurements(),
+      objects: [],
+      elapsedTime: this.elapsedTime,
+      frameCount: this.frameCount,
+      waveField: Array.from(this.waveField) // For serialization
+    };
+  }
+  
+  setState(state: ExperimentState): void {
+    Object.entries(state.parameters).forEach(([key, value]) => {
+      this.parameters.set(key, value as number);
+    });
     
-    this.scene.children
-      .filter(child => child.userData.experiment === 'young-double-slit')
-      .forEach(child => {
-        this.scene.remove(child);
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
-        }
-      });
+    this.elapsedTime = state.elapsedTime;
+    this.frameCount = state.frameCount;
+    
+    if (state.waveField) {
+      this.waveField = new Float32Array(state.waveField);
+    }
+  }
+  
+  getExplanationPoints(): ExplanationPoint[] {
+    return [
+      {
+        id: 'intro',
+        type: 'concept',
+        priority: 'high',
+        condition: 'elapsedTime < 2',
+        message: 'Young\'s double slit experiment shows that light behaves as a wave, creating an interference pattern.',
+        audioRequired: true,
+        pauseSimulation: true
+      },
+      {
+        id: 'pattern-forming',
+        type: 'observation',
+        priority: 'high',
+        condition: 'fringesObserved > 5',
+        message: 'See the bright and dark fringes? This pattern proves light travels as a wave through both slits simultaneously!',
+        audioRequired: true,
+        pauseSimulation: false
+      },
+      {
+        id: 'wavelength-effect',
+        type: 'concept',
+        priority: 'medium',
+        condition: 'wavelength_changes > 2',
+        message: 'Notice how different wavelengths create different fringe spacings. Shorter wavelengths (blue) produce tighter patterns.',
+        audioRequired: true,
+        pauseSimulation: false
+      },
+      {
+        id: 'wave-particle-duality',
+        type: 'concept',
+        priority: 'high',
+        condition: 'elapsedTime > 60',
+        message: 'If we send photons one at a time, they still form this pattern over time - suggesting each photon interferes with itself!',
+        audioRequired: true,
+        pauseSimulation: true
+      }
+    ];
+  }
+  
+  getMeasurements(): Record<string, number> {
+    return {
+      elapsedTime: this.elapsedTime,
+      fringesObserved: this.countFringes(),
+      fringeSpacing: this.calculateFringeSpacing(),
+      wavelength: this.wavelength,
+      slitSeparation: this.slitSeparation,
+      wavelength_changes: this.parameterHistory?.get('wavelength')?.length ?? 0
+    };
+  }
+  
+  protected onParameterChanged(key: string, value: number): void {
+    if (key === 'wavelength') {
+      this.wavelength = value;
+    } else if (key === 'slitSeparation') {
+      this.slitSeparation = value;
+    } else if (key === 'slitWidth') {
+      this.slitWidth = value;
+    }
+  }
+  
+  // Public getter for rendering
+  getWaveField(): Float32Array {
+    return this.waveField;
+  }
+  
+  getInterferencePattern(): Float32Array {
+    return this.interferencePattern;
   }
 }

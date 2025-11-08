@@ -1,370 +1,156 @@
-// physics-engine/experiments/YoungDoubleSlit.ts
+// physics-engine/renderer/GameRenderer.ts
 import * as THREE from 'three';
-import { WaveEngine, WaveParameters } from '../engines/WaveEngine';
-import { QuantumEngine } from '../engines/QuantumEngine';
-import { WaveFieldVisualizer } from '../visualizers/WaveFieldVisualizer';
-import { SimulationState } from '../core/SimulationState';
-import { ProgressTracker } from '../core/ProgressTracker';
+import { UIOverlay } from './UIOverlay';
+import type { GameState, GameScore } from '../types';
 
-export interface DoubleSlitConfig {
-  wavelength: number;
-  slitSeparation: number;
-  slitWidth: number;
-  screenDistance: number;
-  useQuantum: boolean;
-  particleMode: boolean;
-}
+/**
+ * Specialized renderer for game mode
+ */
 
-export class YoungDoubleSlit {
+export class GameRenderer {
   private scene: THREE.Scene;
-  private waveEngine: WaveEngine | null = null;
-  private quantumEngine: QuantumEngine | null = null;
-  private visualizer: WaveFieldVisualizer | null = null;
-  private state: SimulationState;
-  private progress: ProgressTracker;
-  private config: DoubleSlitConfig;
-  private isRunning: boolean = false;
+  private overlay: UIOverlay;
   
-  // Experiment-specific metrics
-  private totalPhotons: number = 0;
-  private detectedPhotons: number = 0;
-  private interferencePattern: Float32Array;
-  
-  constructor(scene: THREE.Scene, config: DoubleSlitConfig) {
+  constructor(scene: THREE.Scene, overlay: UIOverlay) {
     this.scene = scene;
-    this.config = config;
-    this.state = new SimulationState('young-double-slit');
-    this.progress = new ProgressTracker([
-      'setup',
-      'wave-propagation',
-      'interference-formation',
-      'pattern-analysis',
-      'complete'
-    ]);
-    this.interferencePattern = new Float32Array(256);
+    this.overlay = overlay;
   }
   
-  async initialize(): Promise<void> {
-    this.progress.markComplete('setup');
+  /**
+   * Setup game UI
+   */
+  setupGameUI(gameState: GameState): void {
+    // Score display
+    this.overlay.addText(
+      'score',
+      `Score: ${gameState.currentScore}`,
+      { x: 20, y: 20 },
+      { fontSize: '24px', fontWeight: 'bold' }
+    );
     
-    if (this.config.useQuantum) {
-      // Use WebGPU quantum engine for more accurate simulation
-      this.quantumEngine = new QuantumEngine();
-      await this.quantumEngine.initialize();
-    } else {
-      // Use classical wave engine
-      const waveParams: WaveParameters = {
-        wavelength: this.config.wavelength,
-        speed: 3e8, // Speed of light
-        medium: 'vacuum',
-        gridResolution: 256,
-        timeStep: 1e-15
-      };
-      this.waveEngine = new WaveEngine(waveParams);
-      this.waveEngine.setupDoubleSlit(
-        this.config.slitSeparation,
-        this.config.slitWidth
-      );
-    }
+    // Timer
+    this.overlay.addText(
+      'timer',
+      `Time: ${gameState.elapsedTime.toFixed(1)}s`,
+      { x: 20, y: 60 },
+      { fontSize: '20px' }
+    );
     
-    // Create visualizer
-    if (this.waveEngine) {
-      this.visualizer = new WaveFieldVisualizer(
-        this.scene,
-        this.waveEngine,
-        {
-          colorScheme: 'rainbow',
-          show3D: false,
-          showIntensity: true,
-          gridSize: 256,
-          scale: 10
-        }
-      );
-    }
-    
-    // Add experiment apparatus to scene
-    this.createApparatus();
+    // Objectives progress
+    this.overlay.addText(
+      'objectives',
+      `Objectives: ${gameState.objectivesCompleted}/${gameState.totalObjectives}`,
+      { x: 20, y: 100 },
+      { fontSize: '18px' }
+    );
   }
   
-  private createApparatus(): void {
-    // Create barrier with slits
-    const barrierGeometry = new THREE.BoxGeometry(0.1, 5, 1);
-    const barrierMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0x333333,
-      opacity: 0.8,
-      transparent: true
-    });
-    const barrier = new THREE.Mesh(barrierGeometry, barrierMaterial);
-    barrier.position.set(-2, 0, 0);
-    this.scene.add(barrier);
-    
-    // Create slits (gaps in barrier)
-    const slitGeometry = new THREE.BoxGeometry(0.11, this.config.slitWidth, 1.1);
-    const slitMaterial = new THREE.MeshBasicMaterial({ 
-      color: 0x000000,
-      opacity: 1
-    });
-    
-    const slit1 = new THREE.Mesh(slitGeometry, slitMaterial);
-    slit1.position.set(-2, this.config.slitSeparation / 2, 0);
-    this.scene.add(slit1);
-    
-    const slit2 = new THREE.Mesh(slitGeometry, slitMaterial);
-    slit2.position.set(-2, -this.config.slitSeparation / 2, 0);
-    this.scene.add(slit2);
-    
-    // Create detection screen
-    const screenGeometry = new THREE.PlaneGeometry(0.05, 5);
-    const screenMaterial = new THREE.MeshPhongMaterial({ 
-      color: 0xffffff,
-      emissive: 0x111111
-    });
-    const screen = new THREE.Mesh(screenGeometry, screenMaterial);
-    screen.position.set(this.config.screenDistance, 0, 0);
-    this.scene.add(screen);
-    
-    // Add labels
-    this.addLabels();
+  /**
+   * Update game UI
+   */
+  updateGameUI(gameState: GameState): void {
+    this.overlay.updateText('score', `Score: ${gameState.currentScore}`);
+    this.overlay.updateText('timer', `Time: ${gameState.elapsedTime.toFixed(1)}s`);
+    this.overlay.updateText(
+      'objectives',
+      `Objectives: ${gameState.objectivesCompleted}/${gameState.totalObjectives}`
+    );
   }
   
-  private addLabels(): void {
-    // This would add text labels for educational purposes
-    // Implementation depends on text rendering library used
-  }
-  
-  start(): void {
-    this.isRunning = true;
-    this.state.recordEvent({
-      type: 'experiment_started',
-      timestamp: Date.now(),
-      data: { config: this.config }
-    });
-  }
-  
-  pause(): void {
-    this.isRunning = false;
-    this.state.recordEvent({
-      type: 'experiment_paused',
-      timestamp: Date.now()
-    });
-  }
-  
-  async update(deltaTime: number): Promise<void> {
-    if (!this.isRunning) return;
+  /**
+   * Show game over screen
+   */
+  showGameOver(finalScore: GameScore): void {
+    // Create game over overlay
+    const gameOverDiv = document.createElement('div');
+    gameOverDiv.style.position = 'absolute';
+    gameOverDiv.style.top = '50%';
+    gameOverDiv.style.left = '50%';
+    gameOverDiv.style.transform = 'translate(-50%, -50%)';
+    gameOverDiv.style.padding = '40px';
+    gameOverDiv.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    gameOverDiv.style.borderRadius = '10px';
+    gameOverDiv.style.textAlign = 'center';
+    gameOverDiv.style.color = '#ffffff';
+    gameOverDiv.style.fontSize = '24px';
+    gameOverDiv.style.zIndex = '10001';
     
-    if (this.config.particleMode) {
-      // Simulate individual photons
-      await this.updateParticleMode(deltaTime);
-    } else {
-      // Simulate continuous wave
-      await this.updateWaveMode(deltaTime);
-    }
+    gameOverDiv.innerHTML = `
+      <h2 style="margin-bottom: 20px;">Game Over!</h2>
+      <p style="font-size: 36px; color: #ffd700; margin: 20px 0;">
+        Final Score: ${finalScore.totalScore}
+      </p>
+      <p style="font-size: 18px; margin: 10px 0;">
+        Time: ${finalScore.completionTime.toFixed(1)}s
+      </p>
+      <p style="font-size: 18px; margin: 10px 0;">
+        Time Bonus: ${finalScore.timeBonus}
+      </p>
+      <p style="font-size: 18px; margin: 10px 0;">
+        Accuracy Bonus: ${finalScore.accuracyBonus}
+      </p>
+    `;
     
-    // Update visualization
-    if (this.visualizer) {
-      this.visualizer.update();
-    }
-    
-    // Update progress
-    this.updateProgress();
+    document.body.appendChild(gameOverDiv);
   }
   
-  private async updateWaveMode(deltaTime: number): Promise<void> {
-    if (this.waveEngine) {
-      this.waveEngine.update(deltaTime);
-      
-      // Get interference pattern
-      const pattern = this.waveEngine.getIntensityPattern();
-      this.analyzePattern(pattern);
-      
-    } else if (this.quantumEngine) {
-      // Use WebGPU quantum engine
-      const params = {
-        gridSize: 256,
-        wavelength: this.config.wavelength,
-        slitSeparation: this.config.slitSeparation,
-        dt: deltaTime
-      };
-      
-      const result = await this.quantumEngine.simulateWavePropagation(params);
-      this.analyzePattern(result);
+  /**
+   * Show objective complete animation
+   */
+  showObjectiveComplete(objectiveName: string, points: number): void {
+    this.overlay.showNotification(`✓ ${objectiveName} (+${points} points)`, 2000);
+  }
+  
+  /**
+   * Show combo multiplier
+   */
+  showComboMultiplier(multiplier: number): void {
+    if (multiplier > 1) {
+      this.overlay.showNotification(`${multiplier}x COMBO!`, 1500);
     }
   }
   
-  private async updateParticleMode(deltaTime: number): Promise<void> {
-    // Emit photons one at a time
-    const photonsPerSecond = 1000;
-    const photonsThisFrame = Math.floor(photonsPerSecond * deltaTime);
-    
-    for (let i = 0; i < photonsThisFrame; i++) {
-      this.totalPhotons++;
-      
-      // Random y position through one of the slits
-      const slit = Math.random() < 0.5 ? 1 : -1;
-      const y = slit * this.config.slitSeparation / 2 + 
-                (Math.random() - 0.5) * this.config.slitWidth;
-      
-      // Calculate where photon hits the screen
-      const angle = this.calculateDiffraction(y);
-      const screenY = this.config.screenDistance * Math.tan(angle);
-      
-      // Update interference pattern histogram
-      const binIndex = Math.floor((screenY + 2.5) / 5 * 256);
-      if (binIndex >= 0 && binIndex < 256) {
-        this.interferencePattern[binIndex]++;
-        this.detectedPhotons++;
-      }
-    }
-    
-    this.progress.updateStep('wave-propagation', 
-      this.detectedPhotons / 10000); // Target 10000 photons
-  }
-  
-  private calculateDiffraction(y: number): number {
-    // Simplified diffraction calculation
-    const k = 2 * Math.PI / this.config.wavelength;
-    const pathDiff = Math.abs(y) * Math.sin(Math.atan(y / this.config.screenDistance));
-    const phase = k * pathDiff;
-    
-    // Add some quantum randomness
-    return phase + (Math.random() - 0.5) * 0.1;
-  }
-  
-  private analyzePattern(pattern: Float32Array): void {
-    // Find peaks and valleys in interference pattern
-    let peaks = 0;
-    let valleys = 0;
-    
-    for (let i = 1; i < pattern.length - 1; i++) {
-      if (pattern[i] > pattern[i-1] && pattern[i] > pattern[i+1]) {
-        peaks++;
-      }
-      if (pattern[i] < pattern[i-1] && pattern[i] < pattern[i+1]) {
-        valleys++;
-      }
-    }
-    
-    // Calculate fringe visibility
-    const maxIntensity = Math.max(...pattern);
-    const minIntensity = Math.min(...pattern);
-    const visibility = (maxIntensity - minIntensity) / (maxIntensity + minIntensity);
-    
-    this.state.recordMeasurement({
-      type: 'interference_analysis',
-      timestamp: Date.now(),
-      value: {
-        peaks,
-        valleys,
-        visibility,
-        averageIntensity: pattern.reduce((a, b) => a + b) / pattern.length
-      }
+  /**
+   * Add target zone indicator
+   */
+  addTargetZone(
+    id: string,
+    position: THREE.Vector3,
+    radius: number,
+    color: number = 0x00ff00
+  ): void {
+    const geometry = new THREE.RingGeometry(radius * 0.9, radius * 1.1, 32);
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.5
     });
     
-    this.progress.markComplete('interference-formation');
+    const ring = new THREE.Mesh(geometry, material);
+    ring.position.copy(position);
+    ring.rotation.x = -Math.PI / 2;
     
-    if (visibility > 0.8) {
-      this.progress.markComplete('pattern-analysis');
-    }
+    this.scene.add(ring);
   }
   
-  private updateProgress(): void {
-    if (this.progress.getOverallProgress() >= 0.8 && 
-        !this.progress.isStepComplete('complete')) {
-      this.progress.markComplete('complete');
-      this.onExperimentComplete();
-    }
+  /**
+   * Add countdown timer visual
+   */
+  addCountdownTimer(duration: number, position: { x: number; y: number }): void {
+    this.overlay.addGauge(
+      'countdown',
+      'Time Remaining',
+      duration,
+      duration,
+      position
+    );
   }
   
-  private onExperimentComplete(): void {
-    this.state.recordEvent({
-      type: 'experiment_completed',
-      timestamp: Date.now(),
-      data: {
-        totalPhotons: this.totalPhotons,
-        detectedPhotons: this.detectedPhotons,
-        pattern: Array.from(this.interferencePattern)
-      }
-    });
-  }
-  
-  // Methods for LLM integration
-  getExperimentState(): any {
-    return {
-      config: this.config,
-      progress: this.progress.getOverallProgress(),
-      currentStep: this.progress.getCurrentStep(),
-      measurements: this.state.getMeasurements(),
-      isRunning: this.isRunning,
-      photonStats: {
-        total: this.totalPhotons,
-        detected: this.detectedPhotons
-      }
-    };
-  }
-  
-  setParameter(param: string, value: number): void {
-    switch (param) {
-      case 'wavelength':
-        this.config.wavelength = value;
-        if (this.waveEngine) {
-          // Update wave engine parameters
-        }
-        break;
-      case 'slitSeparation':
-        this.config.slitSeparation = value;
-        if (this.waveEngine) {
-          this.waveEngine.setupDoubleSlit(value, this.config.slitWidth);
-        }
-        break;
-      case 'slitWidth':
-        this.config.slitWidth = value;
-        if (this.waveEngine) {
-          this.waveEngine.setupDoubleSlit(this.config.slitSeparation, value);
-        }
-        break;
-    }
-    
-    this.state.recordEvent({
-      type: 'parameter_changed',
-      timestamp: Date.now(),
-      data: { param, value }
-    });
-  }
-  
-  reset(): void {
-    this.isRunning = false;
-    this.totalPhotons = 0;
-    this.detectedPhotons = 0;
-    this.interferencePattern.fill(0);
-    
-    if (this.waveEngine) {
-      this.waveEngine.reset();
-    }
-    
-    this.state.reset();
-    this.progress.reset();
-    
-    this.state.recordEvent({
-      type: 'experiment_reset',
-      timestamp: Date.now()
-    });
-  }
-  
-  dispose(): void {
-    if (this.visualizer) {
-      this.visualizer.dispose();
-    }
-    
-    this.scene.children
-      .filter(child => child.userData.experiment === 'young-double-slit')
-      .forEach(child => {
-        this.scene.remove(child);
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          if (child.material instanceof THREE.Material) {
-            child.material.dispose();
-          }
-        }
-      });
+  /**
+   * Update countdown timer
+   */
+  updateCountdownTimer(timeRemaining: number, totalTime: number): void {
+    this.overlay.updateGauge('countdown', timeRemaining, totalTime);
   }
 }

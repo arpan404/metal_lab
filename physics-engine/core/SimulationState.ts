@@ -1,5 +1,5 @@
 // physics-engine/core/SimulationState.ts
-import type { ExperimentState } from '../types';
+import type { ExperimentState } from '../types/experiments';
 
 export class SimulationState {
   private currentState: ExperimentState | null = null;

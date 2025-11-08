@@ -1,72 +1,84 @@
 // physics-engine/types/renderer.ts
-import * as THREE from 'three';
 
-export interface RenderConfig {
-  canvas: HTMLCanvasElement;
-  width?: number;
-  height?: number;
+import type * as THREE from 'three';
+import type { Vector3D } from './index';
+
+export interface RendererConfig {
+  canvas?: HTMLCanvasElement;
   antialias?: boolean;
   shadows?: boolean;
-  postProcessing?: boolean;
+  physicallyCorrectLights?: boolean;
+  toneMapping?: THREE.ToneMapping;
 }
 
 export interface CameraConfig {
   type: 'perspective' | 'orthographic';
-  position: { x: number; y: number; z: number };
-  lookAt: { x: number; y: number; z: number };
   fov?: number;
   near?: number;
   far?: number;
+  position?: Vector3D;
+  lookAt?: Vector3D;
 }
 
 export interface LightConfig {
-  type: 'ambient' | 'directional' | 'point' | 'spot';
-  color: number;
+  type: 'ambient' | 'directional' | 'point' | 'spot' | 'hemisphere';
+  color: number | string;
   intensity: number;
-  position?: { x: number; y: number; z: number };
-  target?: { x: number; y: number; z: number };
+  position?: Vector3D;
   castShadow?: boolean;
 }
 
-export interface MaterialConfig {
-  type: 'basic' | 'lambert' | 'phong' | 'standard' | 'physical';
-  color?: number;
-  emissive?: number;
+export interface SceneConfig {
+  background?: number | string | THREE.Texture;
+  fog?: {
+    type: 'linear' | 'exponential';
+    color: number | string;
+    near?: number;
+    far?: number;
+    density?: number;
+  };
+  lights?: LightConfig[];
+}
+
+export interface MaterialPreset {
+  name: string;
+  type: 'standard' | 'physical' | 'basic' | 'lambert' | 'phong';
+  color: number | string;
   metalness?: number;
   roughness?: number;
+  emissive?: number | string;
+  emissiveIntensity?: number;
   transparent?: boolean;
   opacity?: number;
 }
 
-export interface EffectConfig {
-  bloom?: {
-    strength: number;
-    radius: number;
-    threshold: number;
-  };
-  motionBlur?: {
-    samples: number;
-    intensity: number;
-  };
-  glow?: {
-    strength: number;
-    radius: number;
-    color: number;
-  };
-}
-
-export interface VisualizationMode {
-  type: 'normal' | 'wireframe' | 'heatmap' | 'vector_field' | 'streamlines';
-  config?: Record<string, any>;
-}
-
-export interface Annotation {
+export interface RenderObject {
   id: string;
-  text: string;
-  position: { x: number; y: number; z: number };
-  style?: {
-    color?: string;
-    fontSize?: number;
-    background?: string;
-  };
+  mesh: THREE.Mesh | THREE.Group;
+  position: Vector3D;
+  rotation?: Vector3D;
+  scale?: Vector3D;
+  visible: boolean;
+}
+
+export interface VisualEffect {
+  type: 'glow' | 'trail' | 'motion-blur' | 'wave';
+  target: string; // Object ID
+  enabled: boolean;
+  parameters: Record<string, any>;
+}
+
+export interface UIElement {
+  id: string;
+  type: 'text' | 'gauge' | 'graph' | 'button' | 'slider';
+  position: { x: number; y: number };
+  content: any;
+  style?: Record<string, any>;
+}
+
+export interface MeasurementTool {
+  type: 'ruler' | 'protractor' | 'grid' | 'vector';
+  position: Vector3D;
+  scale: number;
+  visible: boolean;
 }

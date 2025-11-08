@@ -1,0 +1,54 @@
+{
+    "id": "young_double_slit",
+    "name": "Young's Double Slit",
+    "description": "Demonstrates wave-particle duality through light interference",
+    "difficulty": "intermediate",
+    "estimatedTime": 15,
+    "tags": ["quantum", "waves", "interference", "optics"],
+    "parameters": [
+      {
+        "name": "wavelength",
+        "label": "Wavelength",
+        "min": 400e-9,
+        "max": 700e-9,
+        "default": 650e-9,
+        "step": 10e-9,
+        "unit": "nm"
+      },
+      {
+        "name": "slitSeparation",
+        "label": "Slit Separation",
+        "min": 0.00005,
+        "max": 0.0005,
+        "default": 0.0001,
+        "step": 0.00001,
+        "unit": "m"
+      },
+      {
+        "name": "slitWidth",
+        "label": "Slit Width",
+        "min": 0.00001,
+        "max": 0.0001,
+        "default": 0.00002,
+        "step": 0.000005,
+        "unit": "m"
+      }
+    ],
+    "interestingValues": {
+      "wavelength": [400e-9, 550e-9, 700e-9],
+      "notes": {
+        "400e-9": "Violet light",
+        "550e-9": "Green light",
+        "650e-9": "Red light",
+        "700e-9": "Deep red light"
+      }
+    },
+    "physics": {
+      "concepts": ["wave interference", "diffraction", "wave-particle duality", "superposition"],
+      "equations": [
+        "y = nλL/d (bright fringes)",
+        "y = (n+0.5)λL/d (dark fringes)",
+        "Δφ = 2πd·sin(θ)/λ"
+      ]
+    }
+  }

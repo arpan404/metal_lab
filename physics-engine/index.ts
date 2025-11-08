@@ -1,57 +1,63 @@
 // physics-engine/index.ts
 /**
- * Physics Engine for Virtual Lab
- * Standalone module for GPU-accelerated physics simulations
- * with LLM integration points for educational experiments
+ * Physics Engine - Main Export
+ * Self-contained physics simulation engine with LLM integration
  */
 
-// Core components
-export { PhysicsEngine as Engine } from './core/Engine';
+// Core
+export { PhysicsEngine } from './core/Engine';
 export { SimulationState } from './core/SimulationState';
 export { ProgressTracker } from './core/ProgressTracker';
-export { LLMController as LLMInterface } from './llm/LLMController';
 
-// Physics engines
+// Engines
 export { ClassicalEngine } from './engines/ClassicalEngine';
 export { QuantumEngine } from './engines/QuantumEngine';
 export { ElectricFieldEngine } from './engines/ElectricFieldEngine';
 export { RotationalEngine } from './engines/RotationalEngine';
 
-// Base classes
-export { BaseExperiment } from './experiments/BaseExperiment';
-export { BaseGame } from './games/BaseGame';
-
 // Experiments
+export { BaseExperiment } from './experiments/BaseExperiment';
+export { FoucaultPendulum } from './experiments/FoucaultPendulum';
+export { NASCARBanking } from './experiments/NASCARBanking';
+export { MillikanOilDrop } from './experiments/MillikanOilDrop';
 export { YoungDoubleSlit } from './experiments/YoungDoubleSlit';
 export { RutherfordGoldFoil } from './experiments/RutherfordGoldFoil';
-export { FoucaultPendulum } from './experiments/FoucaultPendulum';
-export { MillikanOilDrop } from './experiments/MillikanOilDrop';
-export { NASCARBanking } from './experiments/NASCARBanking';
 
 // Games
+export { BaseGame } from './games/BaseGame';
 export { BankedTrackChallenge } from './games/BankedTrackChallenge';
 export { AtomicDeflection } from './games/AtomicDeflection';
 
-// State management
+// State Management
 export { StateManager } from './state/StateManager';
 export { SnapshotManager } from './state/SnapshotManager';
 export { HistoryTracker } from './state/HistoryTracker';
 export { GameScoreManager } from './state/GameScoreManager';
 
-// LLM tools
-export { createLLMTools, LLM_TOOLS_JSON } from './llm/tools';
+// LLM
+export { LLMController } from './llm/LLMController';
+export { createLLMTools } from './llm/tools';
 
-// Type definitions
+// Renderer
+export { ThreeJSRenderer } from './renderer/ThreeJSRenderer';
+export { CameraController } from './renderer/CameraController';
+
+// Models
+export { ModelManager } from './models/ModelManager';
+export * from './models/procedural';
+
+// Physics
+export * from './physics/mechanics/CircularMotion';
+export * from './physics/mechanics/Pendulum';
+export * from './physics/electromagnetism/ElectricField';
+export * from './physics/quantum/WaveFunction';
+export * from './physics/nuclear/RutherfordScattering';
+
+// Utils
+export * from './utils/math';
+export * from './utils/colors';
+export * from './utils/formatters';
+export * from './utils/modelLoader';
+
+// Types
 export * from './types';
-
-// Quick start function
-export async function createPhysicsEngine(canvas: HTMLCanvasElement, config?: any) {
-  const { PhysicsEngine } = await import('./core/Engine');
-  const engine = new PhysicsEngine(config);
-  return engine;
-}
-
-// Version info
-export const VERSION = '1.0.0';
-export const GPU_REQUIRED = false;
-export const WEBGPU_PREFERRED = true;

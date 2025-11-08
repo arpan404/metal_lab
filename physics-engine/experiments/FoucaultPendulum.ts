@@ -2,126 +2,104 @@
 import { BaseExperiment } from './BaseExperiment';
 import { RotationalEngine } from '../engines/RotationalEngine';
 import { ClassicalEngine } from '../engines/ClassicalEngine';
-import type { 
-  ExperimentState, 
-  ParameterConfig, 
-  LearningObjective,
-  ExplanationPoint 
-} from '../types';
+import type {
+  ExperimentState,
+  ExplanationPoint,
+} from '../types/experiments';
+
+import type { ParameterConfig, LearningObjective, Vector3D } from '../types/index';
 
 export class FoucaultPendulum extends BaseExperiment {
   private rotationalEngine: RotationalEngine;
   private classicalEngine: ClassicalEngine;
   
-  // Pendulum state
-  private pendulumAngle: { theta: number; phi: number } = { theta: 0, phi: 0 };
-  private pendulumVelocity: { theta: number; phi: number } = { theta: 0, phi: 0 };
-  private pendulumLength: number = 10; // meters
-  private bobMass: number = 10; // kg
+  private pendulumBobId = 'bob';
+  private stringLength: number = 10; // meters
+  private bobMass: number = 5; // kg
   
-  // Tracking
-  private oscillations: number = 0;
-  private precessionAngle: number = 0;
-  private tracePoints: { x: number; y: number; time: number }[] = [];
+  private initialAngle: number = 0.1; // radians
+  private precessionAngle: number = 0; // Track precession
   
   constructor() {
     const parameters: ParameterConfig[] = [
       {
         name: 'latitude',
         label: 'Latitude',
-        default: 48.8,  // Paris latitude
         min: -90,
         max: 90,
+        default: 45,
         step: 1,
         unit: '°',
-        description: 'Geographic latitude'
+        description: 'Geographic latitude (affects precession rate)'
       },
       {
-        name: 'pendulumLength',
+        name: 'length',
         label: 'Pendulum Length',
+        min: 5,
+        max: 30,
         default: 10,
-        min: 1,
-        max: 50,
-        step: 1,
+        step: 0.5,
         unit: 'm',
-        description: 'Length of pendulum cable'
+        description: 'Length of pendulum string'
+      },
+      {
+        name: 'mass',
+        label: 'Bob Mass',
+        min: 1,
+        max: 20,
+        default: 5,
+        step: 0.5,
+        unit: 'kg',
+        description: 'Mass of pendulum bob'
       },
       {
         name: 'initialAngle',
-        label: 'Initial Angle',
-        default: 5,
-        min: 1,
-        max: 20,
-        step: 0.5,
-        unit: '°',
-        description: 'Initial displacement angle'
-      },
-      {
-        name: 'damping',
-        label: 'Air Resistance',
-        default: 0.01,
-        min: 0,
-        max: 0.1,
-        step: 0.001,
-        description: 'Damping coefficient'
+        label: 'Initial Displacement',
+        min: 0.05,
+        max: 0.3,
+        default: 0.1,
+        step: 0.01,
+        unit: 'rad',
+        description: 'Initial angular displacement'
       }
     ];
     
     const objectives: LearningObjective[] = [
       {
-        id: 'observe_oscillation',
-        name: 'Observe Oscillation',
-        description: 'Watch the pendulum swing back and forth',
+        id: 'observe-precession',
+        name: 'Observe Precession',
+        description: 'Watch the pendulum plane rotate over time',
         criteria: {
-          type: 'measurement',
-          key: 'oscillations',
-          target: 5,
-          tolerance: 1
-        },
-        hint: 'Let the pendulum complete several swings',
-        points: 10
+          type: 'time_spent',
+          duration: 60
+        }
       },
       {
-        id: 'detect_precession',
-        name: 'Detect Precession',
-        description: 'Notice the plane of oscillation rotating',
-        criteria: {
-          type: 'measurement',
-          key: 'precessionAngle',
-          target: 15,
-          tolerance: 5
-        },
-        hint: 'Watch how the swing direction changes over time',
-        points: 20
-      },
-      {
-        id: 'latitude_effect',
-        name: 'Latitude Dependence',
-        description: 'See how latitude affects precession rate',
+        id: 'measure-period',
+        name: 'Measure Precession Period',
+        description: 'Calculate the precession period at different latitudes',
         criteria: {
           type: 'parameter_exploration',
           parameter: 'latitude',
           minChanges: 3
-        },
-        hint: 'Try different latitudes (equator, poles, mid-latitudes)',
-        points: 25
+        }
       },
       {
-        id: 'earth_rotation',
-        name: 'Prove Earth\'s Rotation',
-        description: 'Understand how this proves Earth rotates',
+        id: 'understand-coriolis',
+        name: 'Understand Coriolis Effect',
+        description: 'Explain why the pendulum precesses',
         criteria: {
-          type: 'time_spent',
-          duration: 60000 // 1 minute
-        },
-        hint: 'The pendulum maintains its swing plane while Earth rotates beneath it',
-        points: 30
+          type: 'measurement',
+          key: 'precessionAngle',
+          target: Math.PI / 2,
+          tolerance: 0.3
+        }
       }
     ];
     
     super(
       'Foucault Pendulum',
-      'Demonstrate Earth\'s rotation using a long pendulum',
+      'Demonstrates Earth\'s rotation through pendulum precession',
       parameters,
       objectives
     );
@@ -131,220 +109,183 @@ export class FoucaultPendulum extends BaseExperiment {
   }
   
   async initialize(): Promise<void> {
-    const latitude = this.getParameter('latitude') * Math.PI / 180;
-    this.rotationalEngine.setEarthRotation(latitude);
+    // Set Earth's rotation based on latitude
+    const latitudeRad = this.getParameter('latitude') * Math.PI / 180;
+    this.rotationalEngine.setEarthRotation(latitudeRad);
     
-    // Set gravity
-    this.classicalEngine.setGravity({ x: 0, y: -9.81, z: 0 });
+    // Create pendulum bob
+    this.stringLength = this.getParameter('length');
+    this.bobMass = this.getParameter('mass');
+    this.initialAngle = this.getParameter('initialAngle');
     
-    this.reset();
+    const initialPosition: Vector3D = {
+      x: this.stringLength * Math.sin(this.initialAngle),
+      y: 0,
+      z: 0
+    };
+    
+    this.classicalEngine.addRigidBody(this.pendulumBobId, {
+      mass: this.bobMass,
+      position: initialPosition,
+      velocity: { x: 0, y: 0, z: 0 },
+      shape: {
+        type: 'sphere',
+        radius: 0.2
+      }
+    });
+    
+    this.startTime = Date.now();
   }
   
   update(deltaTime: number): void {
     this.elapsedTime += deltaTime;
     this.frameCount++;
     
-    const latitude = this.getParameter('latitude') * Math.PI / 180;
-    const length = this.getParameter('pendulumLength');
-    const damping = this.getParameter('damping');
+    const bob = this.classicalEngine.getBody(this.pendulumBobId);
+    if (!bob) return;
     
-    // Update Earth rotation if latitude changed
-    if (Math.abs(this.rotationalEngine.getLatitude() - latitude) > 0.01) {
-      this.rotationalEngine.setEarthRotation(latitude);
-    }
-    
-    this.pendulumLength = length;
-    
-    // Calculate pendulum motion with Coriolis effect
-    this.updatePendulumMotion(deltaTime, damping);
-    
-    // Track oscillations and precession
-    this.trackMotion();
-    
-    // Update classical engine for visualization
-    this.updateVisualization();
-  }
-  
-  private updatePendulumMotion(deltaTime: number, damping: number): void {
-    const g = 9.81;
-    const L = this.pendulumLength;
-    
-    // Get current position in Cartesian coordinates
-    const x = L * Math.sin(this.pendulumAngle.theta) * Math.cos(this.pendulumAngle.phi);
-    const y = L * Math.sin(this.pendulumAngle.theta) * Math.sin(this.pendulumAngle.phi);
-    const z = -L * Math.cos(this.pendulumAngle.theta);
-    
-    // Calculate velocity in Cartesian
-    const vx = L * (
-      this.pendulumVelocity.theta * Math.cos(this.pendulumAngle.theta) * Math.cos(this.pendulumAngle.phi) -
-      this.pendulumVelocity.phi * Math.sin(this.pendulumAngle.theta) * Math.sin(this.pendulumAngle.phi)
-    );
-    const vy = L * (
-      this.pendulumVelocity.theta * Math.cos(this.pendulumAngle.theta) * Math.sin(this.pendulumAngle.phi) +
-      this.pendulumVelocity.phi * Math.sin(this.pendulumAngle.theta) * Math.cos(this.pendulumAngle.phi)
-    );
-    const vz = L * this.pendulumVelocity.theta * Math.sin(this.pendulumAngle.theta);
-    
-    // Calculate Coriolis force
-    const coriolisForce = this.rotationalEngine.calculateCoriolisForce(
-      this.bobMass,
-      { x: vx, y: vy, z: vz }
-    );
-    
-    // Pendulum restoring force (small angle approximation)
-    const restoring = {
-      theta: -(g / L) * Math.sin(this.pendulumAngle.theta),
-      phi: 0
+    // Get current position and velocity
+    const position: Vector3D = {
+      x: bob.position.x,
+      y: bob.position.y,
+      z: bob.position.z
     };
     
-    // Convert Coriolis to spherical coordinates
-    const coriolisTheta = (
-      coriolisForce.x * Math.cos(this.pendulumAngle.theta) * Math.cos(this.pendulumAngle.phi) +
-      coriolisForce.y * Math.cos(this.pendulumAngle.theta) * Math.sin(this.pendulumAngle.phi) -
-      coriolisForce.z * Math.sin(this.pendulumAngle.theta)
-    ) / (this.bobMass * L);
+    const velocity: Vector3D = {
+      x: bob.velocity.x,
+      y: bob.velocity.y,
+      z: bob.velocity.z
+    };
     
-    const coriolis Phi = (
-      -coriolisForce.x * Math.sin(this.pendulumAngle.phi) +
-      coriolisForce.y * Math.cos(this.pendulumAngle.phi)
-    ) / (this.bobMass * L * Math.sin(this.pendulumAngle.theta + 0.001)); // Avoid division by zero
+    // Calculate forces
     
-    // Update velocities
-    this.pendulumVelocity.theta += (restoring.theta + coriolisTheta - damping * this.pendulumVelocity.theta) * deltaTime;
-    this.pendulumVelocity.phi += (restoring.phi + coriolis Phi - damping * this.pendulumVelocity.phi) * deltaTime;
+    // 1. Gravity
+    const gravity: Vector3D = {
+      x: 0,
+      y: -9.81 * this.bobMass,
+      z: 0
+    };
     
-    // Update angles
-    this.pendulumAngle.theta += this.pendulumVelocity.theta * deltaTime;
-    this.pendulumAngle.phi += this.pendulumVelocity.phi * deltaTime;
+    // 2. String tension (restoring force)
+    const stringVector: Vector3D = {
+      x: -position.x,
+      y: this.stringLength - position.y,
+      z: -position.z
+    };
+    const stringLength = Math.sqrt(
+      stringVector.x ** 2 + stringVector.y ** 2 + stringVector.z ** 2
+    );
+    const tensionMagnitude = (this.bobMass * 9.81 * this.stringLength) / stringLength;
+    const tension: Vector3D = {
+      x: (stringVector.x / stringLength) * tensionMagnitude,
+      y: (stringVector.y / stringLength) * tensionMagnitude,
+      z: (stringVector.z / stringLength) * tensionMagnitude
+    };
     
-    // Record trace
-    if (this.frameCount % 10 === 0) { // Record every 10th frame
-      this.tracePoints.push({
-        x: x,
-        y: y,
-        time: this.elapsedTime
-      });
-      
-      // Limit trace length
-      if (this.tracePoints.length > 1000) {
-        this.tracePoints.shift();
-      }
-    }
-  }
-  
-  private trackMotion(): void {
-    // Count oscillations (crossings through center)
-    const currentSign = Math.sign(this.pendulumAngle.theta);
-    const previousSign = Math.sign(this.pendulumAngle.theta - this.pendulumVelocity.theta * 0.016);
+    // 3. Coriolis force (this causes precession!)
+    const coriolis = this.rotationalEngine.calculateCoriolisForce(this.bobMass, velocity);
     
-    if (currentSign !== previousSign && previousSign !== 0) {
-      this.oscillations += 0.5; // Half oscillation per crossing
-    }
+    // 4. Centrifugal force (small effect)
+    const centrifugal = this.rotationalEngine.calculateCentrifugalForce(this.bobMass, position);
     
-    // Track precession angle
-    this.precessionAngle = this.pendulumAngle.phi * 180 / Math.PI;
-  }
-  
-  private updateVisualization(): void {
-    // Update bob position in classical engine
-    const x = this.pendulumLength * Math.sin(this.pendulumAngle.theta) * Math.cos(this.pendulumAngle.phi);
-    const y = -this.pendulumLength * Math.cos(this.pendulumAngle.theta);
-    const z = this.pendulumLength * Math.sin(this.pendulumAngle.theta) * Math.sin(this.pendulumAngle.phi);
+    // Total force
+    const totalForce: Vector3D = {
+      x: gravity.x + tension.x + coriolis.x + centrifugal.x,
+      y: gravity.y + tension.y + coriolis.y + centrifugal.y,
+      z: gravity.z + tension.z + coriolis.z + centrifugal.z
+    };
     
-    const bob = this.classicalEngine.getBody('pendulum_bob');
-    if (bob) {
-      bob.position.set(x, y, z);
-    }
+    // Apply force
+    bob.applyForce(
+      new CANNON.Vec3(totalForce.x, totalForce.y, totalForce.z),
+      new CANNON.Vec3(0, 0, 0)
+    );
+    
+    // Update classical engine
+    this.classicalEngine.step(deltaTime);
+    
+    // Calculate precession angle
+    this.precessionAngle = Math.atan2(position.z, position.x);
   }
   
   reset(): void {
+    this.classicalEngine.reset();
     this.elapsedTime = 0;
     this.frameCount = 0;
-    this.oscillations = 0;
     this.precessionAngle = 0;
-    this.tracePoints = [];
-    
-    // Set initial angle
-    const initialAngle = this.getParameter('initialAngle') * Math.PI / 180;
-    this.pendulumAngle = { theta: initialAngle, phi: 0 };
-    this.pendulumVelocity = { theta: 0, phi: 0 };
-    
-    // Create pendulum bob in physics engine
-    this.classicalEngine.reset();
-    this.classicalEngine.addRigidBody('pendulum_bob', {
-      mass: this.bobMass,
-      position: {
-        x: this.pendulumLength * Math.sin(initialAngle),
-        y: -this.pendulumLength * Math.cos(initialAngle),
-        z: 0
-      },
-      shape: { type: 'sphere', radius: 0.2 }
-    });
-    
-    this.startTime = Date.now();
+    this.initialize();
   }
   
   getState(): ExperimentState {
+    const bob = this.classicalEngine.getBody(this.pendulumBobId);
+    
     return {
       name: this.name,
-      elapsedTime: this.elapsedTime,
-      frameCount: this.frameCount,
-      parameters: Array.from(this.parameters.entries()),
+      parameters: Object.fromEntries(this.parameters),
       measurements: this.getMeasurements(),
-      customData: {
-        pendulumAngle: { ...this.pendulumAngle },
-        pendulumVelocity: { ...this.pendulumVelocity },
-        oscillations: this.oscillations,
-        precessionAngle: this.precessionAngle,
-        tracePoints: this.tracePoints.slice(-100) // Last 100 points
-      }
+      objects: bob ? [{
+        id: this.pendulumBobId,
+        position: {
+          x: bob.position.x,
+          y: bob.position.y,
+          z: bob.position.z
+        },
+        velocity: {
+          x: bob.velocity.x,
+          y: bob.velocity.y,
+          z: bob.velocity.z
+        }
+      }] : [],
+      elapsedTime: this.elapsedTime,
+      frameCount: this.frameCount
     };
   }
   
   setState(state: ExperimentState): void {
+    // Restore parameters
+    Object.entries(state.parameters).forEach(([key, value]) => {
+      this.parameters.set(key, value as number);
+    });
+    
     this.elapsedTime = state.elapsedTime;
     this.frameCount = state.frameCount;
     
-    state.parameters.forEach(([key, value]) => {
-      this.parameters.set(key, value);
+    // Restore objects
+    state.objects.forEach(obj => {
+      const body = this.classicalEngine.getBody(obj.id);
+      if (body) {
+        body.position.set(obj.position.x, obj.position.y, obj.position.z);
+        body.velocity.set(obj.velocity.x, obj.velocity.y, obj.velocity.z);
+      }
     });
-    
-    if (state.customData) {
-      this.pendulumAngle = state.customData.pendulumAngle || { theta: 0, phi: 0 };
-      this.pendulumVelocity = state.customData.pendulumVelocity || { theta: 0, phi: 0 };
-      this.oscillations = state.customData.oscillations || 0;
-      this.precessionAngle = state.customData.precessionAngle || 0;
-      this.tracePoints = state.customData.tracePoints || [];
-    }
   }
   
   getExplanationPoints(): ExplanationPoint[] {
     return [
       {
-        id: 'pendulum_swinging',
+        id: 'start-explanation',
         type: 'concept',
-        condition: 'oscillations > 1',
-        message: 'The pendulum swings back and forth due to gravity. But watch carefully - the swing direction is slowly changing!',
-        priority: 'medium',
+        priority: 'high',
+        condition: 'elapsedTime < 2',
+        message: 'Welcome to the Foucault Pendulum! This experiment demonstrates Earth\'s rotation.',
+        audioRequired: true,
+        pauseSimulation: true
+      },
+      {
+        id: 'first-precession',
+        type: 'observation',
+        priority: 'high',
+        condition: 'Math.abs(precessionAngle) > 0.05',
+        message: 'Notice how the pendulum\'s swing plane is rotating! This is caused by the Coriolis effect.',
         audioRequired: true,
         pauseSimulation: false
       },
       {
-        id: 'precession_detected',
-        type: 'milestone',
-        condition: 'Math.abs(precessionAngle) > 5',
-        message: 'See that? The plane of oscillation is rotating! This is due to Earth\'s rotation underneath the pendulum.',
-        priority: 'high',
-        audioRequired: true,
-        pauseSimulation: true,
-        highlight: ['trace']
-      },
-      {
-        id: 'latitude_explained',
+        id: 'latitude-effect',
         type: 'concept',
-        condition: 'latitude_changes > 0',
-        message: 'The precession rate depends on latitude. At the poles it\'s maximum (360°/day), at the equator it\'s zero!',
-        priority: 'high',
+        priority: 'medium',
+        condition: 'latitude_changes > 1',
+        message: 'At the poles, the pendulum completes one precession in 24 hours. At the equator, it doesn\'t precess at all!',
         audioRequired: true,
         pauseSimulation: false
       }
@@ -352,18 +293,45 @@ export class FoucaultPendulum extends BaseExperiment {
   }
   
   getMeasurements(): Record<string, number> {
-    const latitude = this.getParameter('latitude');
-    const theoreticalPrecessionRate = this.rotationalEngine.getRotationRate() * 180 / Math.PI * 3600; // degrees per hour
+    const bob = this.classicalEngine.getBody(this.pendulumBobId);
+    
+    if (!bob) {
+      return {
+        elapsedTime: this.elapsedTime,
+        precessionAngle: this.precessionAngle,
+        latitude_changes: 0
+      };
+    }
+    
+    const speed = Math.sqrt(
+      bob.velocity.x ** 2 + bob.velocity.y ** 2 + bob.velocity.z ** 2
+    );
+    
+    const angle = Math.sqrt(
+      bob.position.x ** 2 + bob.position.z ** 2
+    ) / this.stringLength;
     
     return {
       elapsedTime: this.elapsedTime,
-      oscillations: Math.floor(this.oscillations),
       precessionAngle: this.precessionAngle,
-      precessionRate: this.elapsedTime > 0 ? this.precessionAngle / (this.elapsedTime / 3600) : 0,
-      theoreticalPrecessionRate,
-      latitude_changes: this.parameters.get('latitude') !== 48.8 ? 1 : 0,
-      pendulumEnergy: 0.5 * this.bobMass * 9.81 * this.pendulumLength * 
-        (this.pendulumAngle.theta ** 2 + this.pendulumAngle.phi ** 2)
+      precessionRate: this.rotationalEngine.getRotationRate(),
+      precessionPeriod: this.rotationalEngine.getPrecessionPeriod(),
+      bobSpeed: speed,
+      bobAngle: angle,
+      latitude_changes: this.parameterHistory?.get('latitude')?.length ?? 0
     };
+  }
+  
+  protected onParameterChanged(key: string, value: number): void {
+    if (key === 'latitude') {
+      const latitudeRad = value * Math.PI / 180;
+      this.rotationalEngine.setEarthRotation(latitudeRad);
+    } else if (key === 'length') {
+      this.stringLength = value;
+    } else if (key === 'mass') {
+      this.bobMass = value;
+    } else if (key === 'initialAngle') {
+      this.initialAngle = value;
+    }
   }
 }

@@ -4,76 +4,96 @@ export interface GameConfig {
     id: string;
     name: string;
     description: string;
-    difficulty: 'easy' | 'medium' | 'hard' | 'expert';
-    timeLimit?: number;
-    scoreTarget?: number;
-    lives?: number;
+    difficulty: 'easy' | 'medium' | 'hard';
+    timeLimit?: number; // seconds
+    objectives: GameObjective[];
+    scoring: ScoringConfig;
   }
   
-  export interface GameState {
-    score: number;
-    lives: number;
-    timeElapsed: number;
-    level: number;
-    isPlaying: boolean;
-    isPaused: boolean;
-    isGameOver: boolean;
-    achievements: string[];
+  export interface GameObjective {
+    id: string;
+    description: string;
+    targetValue: number;
+    tolerance?: number;
+    points: number;
+    required: boolean;
+  }
+  
+  export interface ScoringConfig {
+    basePoints: number;
+    timeBonus: boolean;
+    accuracyBonus: boolean;
+    comboMultiplier?: number;
+    penalties?: PenaltyConfig[];
+  }
+  
+  export interface PenaltyConfig {
+    reason: string;
+    points: number;
   }
   
   export interface GameScore {
     totalScore: number;
-    accuracy: number;
+    objectiveScores: ObjectiveScore[];
     timeBonus: number;
-    streakBonus: number;
-    achievements: Achievement[];
-    stars: number; // 1-3 star rating
-    breakdown?: ScoreBreakdown;
+    accuracyBonus: number;
+    penalties: number;
+    completionTime: number;
   }
   
-  export interface ScoreBreakdown {
-    base: number;
-    accuracy: number;
-    time: number;
-    streak: number;
-    bonus: number;
-  }
-  
-  export interface Achievement {
-    id: string;
-    name: string;
-    description: string;
-    icon?: string;
+  export interface ObjectiveScore {
+    objectiveId: string;
+    completed: boolean;
     points: number;
-    unlockedAt?: number;
+    accuracy: number;
   }
   
   export interface HighScore {
     score: number;
-    playerName: string;
-    timestamp: number;
     details: GameScore;
+    timestamp: number;
+    playerName: string;
   }
   
-  export interface GameChallenge {
-    id: string;
-    name: string;
-    description: string;
-    objective: string;
-    constraints: GameConstraint[];
-    reward: number;
+  export interface GameState {
+    isPlaying: boolean;
+    isPaused: boolean;
+    startTime: number;
+    elapsedTime: number;
+    currentScore: number;
+    objectivesCompleted: number;
+    totalObjectives: number;
   }
   
-  export interface GameConstraint {
-    type: 'time' | 'parameter' | 'accuracy' | 'sequence';
-    value: any;
-    comparison: 'eq' | 'lt' | 'gt' | 'lte' | 'gte' | 'between';
+  // NASCAR Banking Game specific
+  export interface RacingCheckpoint {
+    position: Vector3D;
+    angle: number;
+    passed: boolean;
+    timestamp?: number;
   }
   
-  export interface PowerUp {
-    id: string;
-    type: 'slow_time' | 'hint' | 'precision' | 'multiplier';
-    duration?: number;
-    multiplier?: number;
-    active: boolean;
+  export interface LapData {
+    lapNumber: number;
+    lapTime: number;
+    averageSpeed: number;
+    maxSpeed: number;
+    checkpoints: RacingCheckpoint[];
   }
+  
+  // Rutherford Game specific
+  export interface TargetZone {
+    angleMin: number;
+    angleMax: number;
+    points: number;
+    hits: number;
+  }
+  
+  export interface DeflectionChallenge {
+    targetAngle: number;
+    tolerance: number;
+    timeLimit: number;
+    points: number;
+  }
+  
+  import type { Vector3D } from './index';

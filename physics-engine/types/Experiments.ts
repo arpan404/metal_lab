@@ -1,64 +1,60 @@
 // physics-engine/types/experiments.ts
 
+import type { Vector3D } from './index';
+
 export interface ExperimentState {
-    name: string;
-    elapsedTime: number;
-    frameCount: number;
-    parameters: [string, number][];
-    measurements: Record<string, number>;
-    objects?: ExperimentObject[];
-    customData?: any;
-  }
-  
-  export interface ExperimentObject {
-    id: string;
-    type: string;
-    position: { x: number; y: number; z: number };
-    rotation?: { x: number; y: number; z: number };
-    scale?: { x: number; y: number; z: number };
-    velocity?: { x: number; y: number; z: number };
-    properties?: Record<string, any>;
-  }
-  
-  export interface ParameterConfig {
-    name: string;
-    label: string;
-    default: number;
-    min: number;
-    max: number;
-    step: number;
-    unit?: string;
-    description?: string;
-  }
-  
-  export interface LearningObjective {
-    id: string;
-    name: string;
-    description: string;
-    criteria: ObjectiveCriteria;
-    hint?: string;
-    points?: number;
-  }
-  
-  export interface ObjectiveCriteria {
-    type: 'measurement' | 'time_spent' | 'parameter_exploration' | 'sequence' | 'custom';
-    key?: string;
-    target?: number;
-    tolerance?: number;
-    duration?: number;
-    parameter?: string;
-    minChanges?: number;
-    sequence?: string[];
-    customCheck?: (state: ExperimentState) => boolean;
-  }
-  
-  export interface ExplanationPoint {
-    id: string;
-    type: 'concept' | 'milestone' | 'hint' | 'warning';
-    condition: string;
-    message: string;
-    priority: 'low' | 'medium' | 'high';
-    audioRequired?: boolean;
-    pauseSimulation?: boolean;
-    highlight?: string[];
-  }
+  name: string;
+  parameters: Record<string, number>;
+  measurements: Record<string, number>;
+  objects: ExperimentObject[];
+  elapsedTime: number;
+  frameCount: number;
+  waveField?: number[]; // For quantum experiments
+}
+
+export interface ExperimentObject {
+  id: string;
+  position: Vector3D;
+  velocity: Vector3D;
+  rotation?: Vector3D;
+  angularVelocity?: Vector3D;
+  mass?: number;
+  charge?: number;
+  deflectionAngle?: number;
+}
+
+export interface Snapshot {
+  id: string;
+  name: string;
+  state: ExperimentState;
+  timestamp: number;
+}
+
+export interface ExplanationPoint {
+  id: string;
+  type: 'concept' | 'observation' | 'warning' | 'achievement';
+  priority: 'low' | 'medium' | 'high';
+  condition: string; // JavaScript expression to evaluate
+  message: string;
+  audioRequired?: boolean;
+  pauseSimulation?: boolean;
+}
+
+export interface ExperimentMetadata {
+  id: string;
+  name: string;
+  description: string;
+  difficulty: 'beginner' | 'intermediate' | 'advanced';
+  estimatedTime: number; // minutes
+  tags: string[];
+  prerequisites?: string[];
+}
+
+export interface ExperimentConfig {
+  metadata: ExperimentMetadata;
+  parameters: ParameterConfig[];
+  objectives: LearningObjective[];
+  explanationPoints: ExplanationPoint[];
+}
+
+import type { ParameterConfig, LearningObjective } from './index';
