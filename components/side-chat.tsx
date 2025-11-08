@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { X, Send, Loader2, Trash2, MessageSquarePlus } from "lucide-react";
 import { useSideChat } from "@/lib/hooks/use-side-chat";
+import { useNavbar } from "@/lib/contexts/navbar-context";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -24,6 +25,7 @@ export default function SideChat({
   onClose: () => void;
   labUID: string;
 }>) {
+  const { isNavbarVisible } = useNavbar();
   const {
     input,
     setInput,
@@ -48,7 +50,9 @@ export default function SideChat({
       {/* Floating toggle button (visible when open) */}
       <button
         onClick={onClose}
-        className={`fixed right-0 top-[calc(50vh+1.75rem)] -translate-y-1/2 bg-primary text-primary-foreground p-3 rounded-l-lg shadow-lg transition-all duration-300 z-50 hover:pr-5 ${
+        className={`fixed right-0 ${
+          isNavbarVisible ? 'top-[calc(50vh+1.75rem)]' : 'top-1/2'
+        } -translate-y-1/2 bg-primary text-primary-foreground p-3 rounded-l-lg shadow-lg transition-all duration-300 z-50 hover:pr-5 cursor-pointer ${
           isOpen ? "opacity-100 translate-x-0" : "opacity-0 translate-x-full pointer-events-none"
         }`}
         aria-label="Close chat"
@@ -58,7 +62,9 @@ export default function SideChat({
 
       {/* Side chat panel */}
       <div
-        className={`fixed right-0 top-14 h-[calc(100vh-3.5rem)] w-96 border-l bg-background shadow-2xl flex flex-col z-40 transform transition-transform duration-300 ease-in-out ${
+        className={`fixed right-0 ${
+          isNavbarVisible ? 'top-14 h-[calc(100vh-3.5rem)]' : 'top-0 h-screen'
+        } w-96 border-l bg-background shadow-2xl flex flex-col z-40 transform transition-all duration-300 ease-in-out cursor-pointer ${
           isOpen ? "translate-x-0" : "translate-x-full"
         }`}
       >

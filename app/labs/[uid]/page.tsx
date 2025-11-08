@@ -4,6 +4,8 @@ import SideChat from "@/components/side-chat";
 import { use } from "react";
 import { MessageSquare } from "lucide-react";
 import { useLabChat } from "../../../lib/hooks/use-lab-chat";
+import { useNavbar } from "@/lib/contexts/navbar-context";
+import DoubleSlitExperiment from "@/components/labs/double_slit";
 
 export default function SimulationPage({
   params,
@@ -12,21 +14,21 @@ export default function SimulationPage({
 }) {
   const { uid } = use(params);
   const { isChatOpen, openChat, closeChat } = useLabChat();
+  const { isNavbarVisible } = useNavbar();
 
   return (
     <main className="relative h-full">
-      <div className="p-8">
-        <h1 className="text-2xl font-bold mb-4">Simulation Lab</h1>
-        <p className="text-muted-foreground">Lab UID: {uid}</p>
-
-        {/* Your simulation content goes here */}
+      <div className="p-0">
+        <DoubleSlitExperiment />
       </div>
 
       {/* Floating chat toggle button on right edge */}
       {!isChatOpen && (
         <button
           onClick={openChat}
-          className="fixed right-0 top-[calc(50vh+1.75rem)] -translate-y-1/2 bg-primary text-primary-foreground p-3 rounded-l-lg shadow-lg transition-all duration-300 z-50 opacity-60 hover:opacity-100 hover:pr-5"
+          className={`fixed right-0 ${
+            isNavbarVisible ? 'top-[calc(50vh+1.75rem)]' : 'top-1/2'
+          } -translate-y-1/2 bg-primary text-primary-foreground p-3 rounded-l-lg shadow-lg transition-all duration-300 z-50 opacity-60 hover:opacity-100 hover:pr-5 cursor-pointer`}
           aria-label="Open chat"
         >
           <MessageSquare className="h-5 w-5" />

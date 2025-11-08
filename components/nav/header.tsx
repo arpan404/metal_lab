@@ -1,9 +1,10 @@
 "use client";
 import React, { useState } from "react";
 import Link from "next/link";
-import { IconHome, IconMessage, IconUser, IconMenu2, IconX, IconLogout, IconChartArcs, IconMeterCube, IconDeviceVisionPro, IconDashboard } from "@tabler/icons-react";
+import { IconHome, IconMessage, IconUser, IconMenu2, IconX, IconLogout, IconChartArcs, IconMeterCube, IconDeviceVisionPro, IconDashboard, IconChevronsUp, IconChevronsDown } from "@tabler/icons-react";
 import { SignOutButton } from "@clerk/nextjs";
 import { Button } from "../ui/button";
+import { useNavbar } from "@/lib/contexts/navbar-context";
 
 export function Header({
     children,
@@ -11,6 +12,7 @@ export function Header({
     children?: React.ReactNode;
 }>) {
     const [open, setOpen] = useState(false);
+    const { isNavbarVisible, setIsNavbarVisible } = useNavbar();
 
     const navItems = [
         { name: "Dashboard", link: "/", icon: <IconDashboard className="h-4 w-4" /> },
@@ -20,12 +22,25 @@ export function Header({
 
     return (
         <>
-            <header className="fixed inset-x-0 top-0 z-50 bg-background backdrop-blur border-b border-border">
+            {/* Toggle button when header is hidden */}
+            {!isNavbarVisible && (
+                <button
+                    onClick={() => setIsNavbarVisible(true)}
+                    className="fixed top-0 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-2 rounded-b-lg shadow-lg transition-all duration-300 z-50 opacity-60 hover:opacity-100"
+                    aria-label="Show navbar"
+                >
+                    <IconChevronsDown className="h-4 w-4" />
+                </button>
+            )}
+
+            <header className={`fixed inset-x-0 top-0 z-50 bg-background backdrop-blur border-b border-border transition-transform duration-300 ${
+                isNavbarVisible ? 'translate-y-0' : '-translate-y-full'
+            }`}>
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div className="flex h-14 items-center justify-between">
                         {/* Brand */}
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-gradient-to-br from-indigo-500 to-purple-500 text-sm font-semibold text-white">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-linear-to-br from-indigo-500 to-purple-500 text-sm font-semibold text-white">
                                 M
                             </div>
                             <span className="hidden text-sm font-medium md:inline">
@@ -47,6 +62,15 @@ export function Header({
                             ))}
 
                         </nav>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setIsNavbarVisible(false)}
+                                className="text-muted-foreground hover:text-foreground transition-colors hidden md:block"
+                                aria-label="Hide navbar"
+                                title="Hide navbar"
+                            >
+                                <IconChevronsUp className="h-5 w-5" />
+                            </button>
                             <SignOutButton>
                                     <Button variant={
                                         "ghost"
@@ -55,6 +79,7 @@ export function Header({
                                     Signout
                                     </Button>
                                     </SignOutButton>
+                        </div>
 
                         {/* Mobile toggle */}
                         <div className="md:hidden">
@@ -99,8 +124,8 @@ export function Header({
                 )}
             </header>
 
-            {/* push page content below fixed header */}
-            <div className="pt-14">
+            {/* push page content below fixed header - only when visible */}
+            <div className={`transition-all duration-300 ${isNavbarVisible ? 'pt-14' : 'pt-0'}`}>
                 {children}
             </div>
         </>

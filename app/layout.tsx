@@ -3,6 +3,7 @@ import { ClerkProvider, SignedIn } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import {  Header } from "@/components/nav/header";
+import { NavbarProvider } from "@/lib/contexts/navbar-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,7 +32,9 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen h-screen`}
         >
           <SignedIn>
-            <Header>{children}</Header>
+            <NavbarProvider>
+              <Header>{children}</Header>
+            </NavbarProvider>
           </SignedIn>
         </body>
       </html>
