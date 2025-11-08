@@ -177,5 +177,4 @@ export function createLLMTools() {
     ];
   }
   
-  // Export as JSON for easy configuration
   export const LLM_TOOLS_JSON = JSON.stringify(createLLMTools(), null, 2);
