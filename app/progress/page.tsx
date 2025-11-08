@@ -1,6 +1,15 @@
 'use client'
 
 import React, { useState } from 'react'
+import Link from 'next/link'
+import { PageHeader } from '@/components/atomic/page-header'
+import { StatCard } from '@/components/atomic/stat-card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Clock, TrendingUp, Target, CheckCircle2, Circle, ChevronDown, ChevronUp, PlayCircle, RotateCcw } from 'lucide-react'
 
 interface LabProgress {
   id: string
@@ -83,62 +92,73 @@ const inProgressLabs: LabProgress[] = [
 function ProgressCard({ lab }: { lab: LabProgress }) {
   const [expanded, setExpanded] = useState(false)
 
+  const completedCheckpoints = lab.checkpoints.filter(c => c.completed).length
+  const totalCheckpoints = lab.checkpoints.length
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      {/* Card Header */}
-      <div className="p-6 border-b border-gray-100">
+    <Card className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 overflow-hidden">
+      <CardHeader className="pb-4">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">{lab.title}</h3>
-            <p className="text-sm text-gray-500">{lab.category}</p>
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900">{lab.title}</h3>
+              <Badge variant="outline" className="text-xs">{lab.category}</Badge>
+            </div>
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className="flex items-center gap-1">
+                <Clock className="w-4 h-4" />
+                <span>{lab.timeSpent}</span>
+              </div>
+              <span className="text-gray-300">•</span>
+              <span>{lab.lastAccessed}</span>
+            </div>
           </div>
           <div className="text-right">
-            <div className="text-2xl font-bold text-purple-600">{lab.progress}%</div>
+            <div className="text-3xl font-bold text-slate-900">
+              {lab.progress}%
+            </div>
             <div className="text-xs text-gray-500">Complete</div>
           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-4">
-          <div 
-            className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-300"
-            style={{ width: `${lab.progress}%` }}
-          />
-        </div>
-
-        {/* Meta Info */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4">
-            <span className="text-gray-600">
-              ⏱️ {lab.timeSpent}
-            </span>
-            <span className="text-gray-600">
-              🕐 {lab.lastAccessed}
-            </span>
+        <div className="space-y-2">
+          <Progress value={lab.progress} className="h-2" />
+          <div className="flex items-center justify-between text-xs text-gray-600">
+            <span>{completedCheckpoints} of {totalCheckpoints} checkpoints</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setExpanded(!expanded)}
+              className="h-auto p-0 text-violet-600 hover:text-violet-700 font-medium"
+            >
+              {expanded ? (
+                <>
+                  Hide Details <ChevronUp className="w-4 h-4 ml-1" />
+                </>
+              ) : (
+                <>
+                  Show Details <ChevronDown className="w-4 h-4 ml-1" />
+                </>
+              )}
+            </Button>
           </div>
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="text-purple-600 hover:text-purple-700 font-medium"
-          >
-            {expanded ? '▲ Hide Details' : '▼ Show Details'}
-          </button>
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Expandable Checkpoints */}
       {expanded && (
-        <div className="p-6 bg-gray-50">
-          <h4 className="text-sm font-semibold text-gray-900 mb-4">Checkpoints Progress</h4>
+        <CardContent className="bg-gray-50/50 border-t border-gray-100 py-4">
+          <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Target className="w-4 h-4 text-slate-700" />
+            Checkpoint Progress
+          </h4>
           <div className="space-y-3">
             {lab.checkpoints.map((checkpoint, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  checkpoint.completed 
-                    ? 'bg-green-500 text-white' 
-                    : 'bg-gray-200 text-gray-400'
-                }`}>
-                  {checkpoint.completed ? '✓' : index + 1}
-                </div>
+              <div key={index} className="flex items-center gap-3 group/item">
+                {checkpoint.completed ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0" />
+                ) : (
+                  <Circle className="w-5 h-5 text-gray-300 shrink-0" />
+                )}
                 <span className={`text-sm ${
                   checkpoint.completed 
                     ? 'text-gray-900 font-medium' 
@@ -149,29 +169,21 @@ function ProgressCard({ lab }: { lab: LabProgress }) {
               </div>
             ))}
           </div>
-          
-          {/* Future: Snapshot Preview */}
-          {lab.snapshotUrl && (
-            <div className="mt-4 p-3 bg-white rounded-lg border border-gray-200">
-              <p className="text-xs text-gray-500 mb-2">Last saved state:</p>
-              <div className="aspect-video bg-gray-100 rounded flex items-center justify-center">
-                <span className="text-gray-400">Babylon.js Snapshot Preview</span>
-              </div>
-            </div>
-          )}
-        </div>
+        </CardContent>
       )}
 
-      {/* Action Buttons */}
-      <div className="p-6 bg-white border-t border-gray-100 flex gap-3">
-        <button className="flex-1 py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-          Continue Lab
-        </button>
-        <button className="py-2 px-4 border border-gray-300 hover:border-gray-400 text-gray-700 rounded-lg font-medium transition-colors">
-          Reset
-        </button>
-      </div>
-    </div>
+      <CardFooter className="bg-white border-t border-gray-100 p-4 flex gap-3">
+        <Link href={`/labs/${lab.id}`} className="flex-1">
+          <Button className="w-full bg-slate-900 hover:bg-slate-800 text-white border-0">
+            <PlayCircle className="w-4 h-4 mr-2" />
+            Continue Lab
+          </Button>
+        </Link>
+        <Button variant="outline" size="icon">
+          <RotateCcw className="w-4 h-4" />
+        </Button>
+      </CardFooter>
+    </Card>
   )
 }
 
@@ -204,129 +216,106 @@ export default function ProgressPage() {
     inProgressLabs.reduce((acc, lab) => acc + lab.progress, 0) / inProgressLabs.length
   )
 
+  const stats = [
+    {
+      icon: '🔄',
+      label: 'Labs In Progress',
+      value: inProgressLabs.length,
+      iconBg: 'bg-sky-50',
+      description: 'Keep up the momentum!',
+    },
+    {
+      icon: '📊',
+      label: 'Average Progress',
+      value: `${averageProgress}%`,
+      iconBg: 'bg-slate-50',
+      trend: { value: '+12% this week', positive: true },
+    },
+    {
+      icon: '⏱️',
+      label: 'Total Time Invested',
+      value: `${totalTimeSpent.toFixed(1)} hrs`,
+      iconBg: 'bg-emerald-50',
+      description: 'Great dedication!',
+    },
+  ]
+
   return (
-    <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center text-white font-semibold text-lg">
-            M
-          </div>
-          <span className="text-lg font-semibold">Metal Lab</span>
-        </div>
-
-        <nav className="flex gap-8">
-          <a href="/" className="flex items-center gap-2 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors">
-            <span>📊</span> Dashboard
-          </a>
-          <a href="/labs" className="flex items-center gap-2 text-gray-700 hover:text-gray-900 px-4 py-2 rounded-lg transition-colors">
-            <span>🧪</span> Labs
-          </a>
-          <a href="/progress" className="flex items-center gap-2 text-gray-900 bg-gray-100 px-4 py-2 rounded-lg">
-            <span>📈</span> Progress
-          </a>
-        </nav>
-
-        <button className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
-          <span>🔓</span> Signout
-        </button>
-      </header>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-semibold text-gray-900 mb-2">Your Progress</h1>
-          <p className="text-gray-600">Continue your incomplete experiments and track your learning journey</p>
-        </div>
+    <main className="min-h-screen bg-linear-to-br from-slate-50 via-white to-blue-50/20">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <PageHeader
+          title="Your Progress"
+          description="Continue your incomplete experiments and track your learning journey"
+          action={
+            <Link href="/labs">
+              <Button variant="outline" className="gap-2">
+                <Target className="w-4 h-4" />
+                Browse All Labs
+              </Button>
+            </Link>
+          }
+        />
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center text-xl">
-                🔄
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{inProgressLabs.length}</div>
-                <div className="text-sm text-gray-600">Labs In Progress</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center text-xl">
-                📊
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{averageProgress}%</div>
-                <div className="text-sm text-gray-600">Average Progress</div>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center text-xl">
-                ⏱️
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-gray-900">{totalTimeSpent.toFixed(1)} hrs</div>
-                <div className="text-sm text-gray-600">Total Time Invested</div>
-              </div>
-            </div>
-          </div>
+          {stats.map((stat, index) => (
+            <StatCard key={index} {...stat} />
+          ))}
         </div>
 
-        {/* Sort Controls */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Incomplete Labs</h2>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setSortBy('recent')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                sortBy === 'recent'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              Most Recent
-            </button>
-            <button
-              onClick={() => setSortBy('progress')}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors ${
-                sortBy === 'progress'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
-              }`}
-            >
-              By Progress
-            </button>
+        {/* Tabs for Filtering */}
+        <Tabs defaultValue="recent" className="mb-6" onValueChange={(value) => setSortBy(value as 'recent' | 'progress')}>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-slate-700" />
+              Incomplete Labs
+            </h2>
+            <TabsList>
+              <TabsTrigger value="recent">Most Recent</TabsTrigger>
+              <TabsTrigger value="progress">By Progress</TabsTrigger>
+            </TabsList>
           </div>
-        </div>
 
-        {/* Progress Cards */}
-        {sortedLabs.length > 0 ? (
-          <div className="space-y-6">
-            {sortedLabs.map(lab => (
-              <ProgressCard key={lab.id} lab={lab} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
-            <div className="text-6xl mb-4">🎉</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">All Caught Up!</h3>
-            <p className="text-gray-600 mb-6">You don't have any incomplete labs at the moment.</p>
-            <a 
-              href="/labs"
-              className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors"
-            >
-              Browse Labs
-            </a>
-          </div>
-        )}
+          <TabsContent value="recent" className="mt-0">
+            {sortedLabs.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6">
+                {sortedLabs.map(lab => (
+                  <ProgressCard key={lab.id} lab={lab} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </TabsContent>
+
+          <TabsContent value="progress" className="mt-0">
+            {sortedLabs.length > 0 ? (
+              <div className="grid grid-cols-1 gap-6">
+                {sortedLabs.map(lab => (
+                  <ProgressCard key={lab.id} lab={lab} />
+                ))}
+              </div>
+            ) : (
+              <EmptyState />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
+  )
+}
+
+function EmptyState() {
+  return (
+    <Card className="p-12 text-center">
+      <div className="text-6xl mb-4">🎉</div>
+      <h3 className="text-xl font-semibold text-gray-900 mb-2">All Caught Up!</h3>
+      <p className="text-gray-600 mb-6">You don't have any incomplete labs at the moment.</p>
+      <Link href="/labs">
+        <Button className="bg-slate-900 hover:bg-slate-800 text-white border-0">
+          Browse Labs
+        </Button>
+      </Link>
+    </Card>
   )
 }
