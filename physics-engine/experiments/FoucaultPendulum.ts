@@ -8,6 +8,7 @@ import type {
 } from '../types/experiments';
 
 import type { ParameterConfig, LearningObjective, Vector3D } from '../types/index';
+import * as CANNON from 'cannon-es';
 
 export class FoucaultPendulum extends BaseExperiment {
   private rotationalEngine: RotationalEngine;

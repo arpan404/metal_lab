@@ -32,7 +32,12 @@ export class ThreeJSRenderer {
     }
     
     if (config?.physicallyCorrectLights) {
-      this.renderer.physicallyCorrectLights = true;
+        if ('physicallyCorrectLights' in this.renderer) {
+            (this.renderer as any).physicallyCorrectLights = true;
+        }
+        else if ('useLegacyLights' in this.renderer) {
+            (this.renderer as any).useLegacyLights = false;
+        }
     }
     
     if (config?.toneMapping) {

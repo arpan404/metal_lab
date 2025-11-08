@@ -277,7 +277,7 @@ export class NASCARBanking extends BaseExperiment {
         type: 'warning',
         priority: 'medium',
         condition: `velocity > ${optimalSpeed + 10}`,
-        message: 'You're going too fast! The car needs additional friction force to stay on the track.',
+        message: 'You\'re going too fast! The car needs additional friction force to stay on the track.',
         audioRequired: true,
         pauseSimulation: false
       },
