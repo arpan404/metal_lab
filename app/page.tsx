@@ -1,128 +1,113 @@
-"use client";
+'use client'
+import React from 'react'
 
-import React, { useState, useRef } from "react";
-
-export default function DashboardPage() {
-  const [text, setText] = useState("Hello, I am AI");
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<{
-    type: "success" | "error" | "loading" | null;
-    message: string;
-  }>({ type: null, message: "" });
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-
-  const generateAudio = async () => {
-    if (!text.trim()) {
-      setStatus({ type: "error", message: "Please enter some text" });
-      return;
-    }
-
-    setIsLoading(true);
-    setStatus({ type: "loading", message: "Generating audio..." });
-    setAudioUrl(null);
-
-    try {
-      const response = await fetch("/api/audio/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      setAudioUrl(url);
-      setStatus({
-        type: "success",
-        message: "✓ Audio generated successfully! Click play below.",
-      });
-
-      // Auto-play
-      setTimeout(() => {
-        audioRef.current?.play().catch((e) => {
-          console.log("Auto-play blocked:", e);
-        });
-      }, 100);
-    } catch (error) {
-      console.error("Error:", error);
-      setStatus({
-        type: "error",
-        message: `✗ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.ctrlKey && e.key === "Enter") {
-      generateAudio();
-    }
-  };
-
+export default function Page() {
   return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">
-            🎙️ Text-to-Speech
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Enter text below to generate audio:
-          </p>
+    <main>
+      <header>
+        <div className="logo-section">
+          <div className="logo">M</div>
+          <span className="brand-name">Metal Lab</span>
+        </div>
 
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type something like: Hello, I am AI..."
-            className="w-full min-h-[120px] p-4 border-2 border-gray-300 rounded-lg text-sm resize-vertical focus:outline-none focus:border-blue-500 transition-colors"
-          />
+        <nav>
+          <a href="#" className="active">
+            <span>📊</span> Dashboard
+          </a>
+          <a href="#">
+            <span>🧪</span> Labs
+          </a>
+          <a href="#">
+            <span>📈</span> Progress
+          </a>
+        </nav>
 
-          <button
-            onClick={generateAudio}
-            disabled={isLoading}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Generating..." : "Generate Audio"}
+        <div className="user-section">
+          <button className="signout-btn">
+            <span>🔓</span> Signout
           </button>
+        </div>
+      </header>
 
-          {status.type && (
-            <div
-              className={`mt-4 p-4 rounded-lg ${
-                status.type === "success"
-                  ? "bg-green-50 text-green-800"
-                  : status.type === "error"
-                    ? "bg-red-50 text-red-800"
-                    : "bg-blue-50 text-blue-800"
-              }`}
-            >
-              {status.message}
+      <div className="container">
+        <div className="welcome-section">
+          <h1>Welcome back, Student! 👋</h1>
+          <p>Here's your learning progress and activity overview</p>
+        </div>
+
+        <div className="state-card">
+          <div className="state-title">Current Learning State</div>
+          <div className="state-value">Quantum Mechanics - Wave Functions</div>
+          <div className="state-details">
+            <div className="state-detail">
+              <div className="state-detail-value">2.5 hrs</div>
+              <div className="state-detail-label">Today</div>
             </div>
-          )}
+            <div className="state-detail">
+              <div className="state-detail-value">15 hrs</div>
+              <div className="state-detail-label">This Week</div>
+            </div>
+            <div className="state-detail">
+              <div className="state-detail-value">Level 3</div>
+              <div className="state-detail-label">Current Level</div>
+            </div>
+          </div>
+        </div>
 
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              controls
-              className="w-full mt-4"
-            />
-          )}
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-header">
+              <div className="stat-icon" style={{ background: '#e8f5e9' }}>🧪</div>
+            </div>
+            <div className="stat-value">12</div>
+            <div className="stat-label">Experiments Completed</div>
+            <div className="stat-change">+3 this week</div>
+          </div>
 
-          <p className="text-sm text-gray-500 mt-4">
-            💡 Tip: Press <kbd className="px-2 py-1 bg-gray-100 rounded">Ctrl</kbd> +{" "}
-            <kbd className="px-2 py-1 bg-gray-100 rounded">Enter</kbd> to generate
-          </p>
+          <div className="stat-card">
+            <div className="stat-header">
+              <div className="stat-icon" style={{ background: '#e8f5f7' }}>📈</div>
+            </div>
+            <div className="stat-value">8</div>
+            <div className="stat-label">Labs In Progress</div>
+            <div className="stat-change">+1 today</div>
+          </div>
         </div>
       </div>
-    </div>
-  );
+
+      <style jsx global>{`
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; }
+        header { background: white; border-bottom: 1px solid #e5e7; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+        .logo-section { display: flex; align-items: center; gap: 12px; }
+        .logo { width: 40px; height: 40px; background: #7c3aed; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 18px; }
+        .brand-name { font-size: 18px; font-weight: 600; }
+        nav { display: flex; gap: 32px; }
+        nav a { text-decoration: none; color: #1d1d1f; font-size: 14px; display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; transition: background 0.2s; }
+        nav a.active { background: #f5f5f7; }
+        nav a:hover { background: #f5f5f7; }
+        .user-section { display: flex; align-items: center; gap: 16px; }
+        .signout-btn { border: none; background: none; cursor: pointer; font-size: 14px; color: #1d1d1f; display: flex; align-items: center; gap: 6px; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 32px; }
+        .welcome-section { margin-bottom: 32px; }
+        .welcome-section h1 { font-size: 32px; font-weight: 600; margin-bottom: 8px; }
+        .welcome-section p { color: #6e6e73; font-size: 16px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 32px; }
+        .stat-card { background: white; border-radius: 12px; padding: 24px; border: 1px solid #e5e7; }
+        .stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .stat-icon { width: 40px; height: 40px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .stat-value { font-size: 32px; font-weight: 600; margin-bottom: 4px; }
+        .stat-label { color: #6e6e73; font-size: 14px; }
+        .stat-change { font-size: 12px; color: #34c759; margin-top: 8px; }
+        .state-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 24px; color: white; margin-bottom: 24px; }
+        .state-title { font-size: 14px; opacity: 0.9; margin-bottom: 8px; }
+        .state-value { font-size: 24px; font-weight: 600; margin-bottom: 16px; }
+        .state-details { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .state-detail { opacity: 0.9; }
+        .state-detail-value { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .state-detail-label { font-size: 12px; opacity: 0.8; }
+      `}</style>
+    </main>
+  )
 }
+
