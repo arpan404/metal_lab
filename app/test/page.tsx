@@ -12,14 +12,16 @@ export default function TestPage() {
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMessage = { role: "user" as const, content: input };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
+    const newMessage = input;
     setInput("");
     setIsLoading(true);
 
+    // Add user message to the UI
+    const userMessage = { role: "user" as const, content: newMessage };
+    setMessages((prev) => [...prev, userMessage]);
+
     // Add empty assistant message that will be updated
-    setMessages([...newMessages, { role: "assistant", content: "" }]);
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
       const response = await fetch("/api/ai/chat", {
@@ -27,7 +29,10 @@ export default function TestPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ messages: newMessages }),
+        body: JSON.stringify({ 
+          messages: messages,
+          newMessage: newMessage 
+        }),
       });
 
       if (!response.ok) {
