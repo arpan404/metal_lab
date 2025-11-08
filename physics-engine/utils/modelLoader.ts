@@ -1,7 +1,7 @@
 // physics-engine/utils/modelLoader.ts
 
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 export class ModelLoader {
   private static instance: ModelLoader;

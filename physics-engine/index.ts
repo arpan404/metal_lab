@@ -1,9 +1,3 @@
-// physics-engine/index.ts
-/**
- * Physics Engine - Main Export
- * Self-contained physics simulation engine with LLM integration
- */
-
 // Core
 export { PhysicsEngine } from './core/Engine';
 export { SimulationState } from './core/SimulationState';
@@ -43,8 +37,8 @@ export { ThreeJSRenderer } from './renderer/ThreeJSRenderer';
 export { CameraController } from './renderer/CameraController';
 
 // Models
-export { ModelManager } from './models/ModelManager';
-export * from './models/procedural';
+//export { ModelManager } from './models/ModelManager';
+//export * from './models/procedural';
 
 // Physics
 export * from './physics/mechanics/CircularMotion';
