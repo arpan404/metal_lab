@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useAppStore } from '@/lib/app-store'
+import { useEffect, useState } from "react";
+
 import { 
   TrendingUp, 
   Clock, 
@@ -35,13 +37,15 @@ import {
 } from '@tabler/icons-react'
 
 export default function Page() {
-  const { userId, isLoaded } = useAuth()
+  const {isLoaded, isSignedIn } = useAuth()
   const { stats: userStats, labs, activities } = useAppStore()
+  const [isLoading, setIsLoading] = useState(true);
+
 
   // Show landing page for unauthenticated users or while auth is loading
-  // if (!isLoaded || !userId) {
-    return <LandingPage/>
-  // }
+  if (!isSignedIn) {
+    return <LandingPage/>; 
+  }
 
   const stats = [
     {

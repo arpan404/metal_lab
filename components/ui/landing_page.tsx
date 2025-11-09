@@ -18,7 +18,7 @@ export default function LandingPage() {
               <p className="text-xs text-slate-600">Science Experiments</p>
             </div>
           </div>
-          <SignInButton mode="modal">
+          <SignInButton mode="redirect">
             <button className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2">
               Get Started
               <Rocket className="w-4 h-4" />
@@ -54,7 +54,7 @@ export default function LandingPage() {
             
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <SignInButton mode="modal">
+              <SignInButton mode="redirect">
                 <button className="group px-10 py-5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-lg transition-all shadow-2xl hover:shadow-3xl hover:-translate-y-1 flex items-center justify-center gap-3">
                   Start Learning Free
                   <Rocket className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
@@ -196,7 +196,7 @@ export default function LandingPage() {
               <p className="text-xl text-white/80 mb-10 max-w-2xl mx-auto">
                 Join thousands of students mastering science through interactive simulations
               </p>
-              <SignInButton mode="modal">
+              <SignInButton mode="redirect">
                 <button className="px-12 py-5 bg-white text-slate-900 hover:bg-gray-100 rounded-2xl font-bold text-xl transition-all shadow-2xl hover:shadow-3xl hover:-translate-y-1 inline-flex items-center gap-3">
                   Start Your Free Trial
                   <Rocket className="w-6 h-6" />
