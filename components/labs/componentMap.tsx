@@ -14,7 +14,7 @@ export const componentMap: Record<
 > = {
   electricFieldSimulation: {
     name: "Electric Field Simulation",
-    description: "Simulate electric fields with customizable parameters.",
+    description: `Explore electric fields created by two point charges in 3D space. Adjust charge magnitudes (positive or negative) and observe how the field vectors change in real-time. The simulation visualizes field lines, shows force on a test charge, and demonstrates fundamental concepts like superposition and inverse-square law. Switch between Manual mode (full control) and AI mode (guided exploration with Mela). Features include adjustable field density, 3D orbital controls, and color-coded field strength visualization. Perfect for understanding Coulomb's law and electrostatic interactions!`,
     component: ElectricFieldSimulation,
     provider: ElectricFieldSimulationProvider,
   },

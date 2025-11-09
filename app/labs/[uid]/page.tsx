@@ -11,6 +11,7 @@ import ElectricFieldSimulation, {
 } from "@/components/labs/electric-field-simulation";
 import { componentMap } from "@/components/labs/componentMap";
 import { useTransformerSimulation } from "@/components/labs/transformer-simulation";
+import { useElectricFieldSimulation } from "@/components/labs/electric-field-simulation";
 
 // Wrapper component to provide chat with simulation context
 function SimulationWithChat({ uid }: { uid: string }) {
@@ -29,7 +30,18 @@ function SimulationWithChat({ uid }: { uid: string }) {
     // Context not available, that's fine
   }
 
-  // Build experiment details with transformer state if available
+  // Try to get electric field simulation context if available
+  let electricFieldContext = null;
+  try {
+    if (uid === "electricFieldSimulation") {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      electricFieldContext = useElectricFieldSimulation();
+    }
+  } catch (e) {
+    // Context not available, that's fine
+  }
+
+  // Build experiment details based on which simulation is active
   const experimentDetails = {
     name: componentMap[uid]?.name || "Unknown Experiment",
     description: componentMap[uid]?.description || "No description available.",
@@ -45,6 +57,13 @@ function SimulationWithChat({ uid }: { uid: string }) {
       maxTokens: transformerContext.maxTokens,
       tokenizedInput: transformerContext.tokenizedInput,
       stepByStep: transformerContext.stepByStep,
+    } : electricFieldContext ? {
+      charge1Magnitude: electricFieldContext.charge1.magnitude,
+      charge2Magnitude: electricFieldContext.charge2.magnitude,
+      fieldDensity: electricFieldContext.fieldDensity,
+      showFieldLines: electricFieldContext.showFieldLines,
+      isPlaying: electricFieldContext.isPlaying,
+      observations: electricFieldContext.observationLog,
     } : {},
     variables: transformerContext ? {
       "Current Step": transformerContext.currentStep,
@@ -54,6 +73,12 @@ function SimulationWithChat({ uid }: { uid: string }) {
       "Manual Mode": transformerContext.manualMode ? "ON" : "OFF",
       "Auto Continue": transformerContext.autoContinue ? "ON" : "OFF",
       "Generated Tokens": `${transformerContext.generatedTokenCount}/${transformerContext.maxTokens}`,
+    } : electricFieldContext ? {
+      "Charge 1": `${electricFieldContext.charge1.magnitude > 0 ? "+" : ""}${electricFieldContext.charge1.magnitude}`,
+      "Charge 2": `${electricFieldContext.charge2.magnitude > 0 ? "+" : ""}${electricFieldContext.charge2.magnitude}`,
+      "Field Density": `${electricFieldContext.fieldDensity}x`,
+      "Field Lines": electricFieldContext.showFieldLines ? "Visible" : "Hidden",
+      "Simulation": electricFieldContext.isPlaying ? "Playing" : "Paused",
     } : {}
   };
 

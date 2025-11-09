@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRightIcon,
@@ -943,18 +943,6 @@ export function SimpleAITutor() {
           onClose={() => setShowDetailedContent(false)}
           content={currentStepContent}
         />
-
-        <ContinuousGenerationModal
-          isOpen={showContinuousGenerationModal}
-          onClose={() => setShowContinuousGenerationModal(false)}
-          onEnableAutoContinue={() => {
-            setAutoContinue(true);
-            setShowContinuousGenerationModal(false);
-            setExplanation(
-              "Auto-Continue enabled! Watch how LLMs generate tokens continuously!"
-            );
-          }}
-        />
       </>
     );
   }
@@ -1546,7 +1534,75 @@ export const AIExplanation = ({
   children: React.ReactNode;
 }) => {
   const [isVisible, setIsVisible] = useState(true);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [triedAudio, setTriedAudio] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
+  const generateAudio = async () => {
+    if (!text.trim()) {
+      return null;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+      const response = await fetch("/api/audio/generate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        console.log("Audio generation failed with status:", response.status);
+        return null;
+      }
+
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+
+      return url;
+    } catch (error: any) {
+      // Silently handle audio errors - audio is optional feature
+      if (error.name === 'AbortError') {
+        console.log("Audio generation timed out");
+      } else if (error.code === 'ECONNRESET') {
+        console.log("Audio connection reset - continuing without audio");
+      } else {
+        console.log("Audio generation error:", error.message || error);
+      }
+      return null;
+    }
+  };
+  
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.play().catch((error) => {
+        console.log("Error playing audio:", error);
+      });
+    } else {
+      if (!triedAudio) {
+        generateAudio()
+          .then((url) => {
+            if (url) {
+              setAudioUrl(url);
+            }
+          })
+          .catch((error) => {
+            console.log("Audio generation promise rejected:", error);
+          })
+          .finally(() => {
+            setTriedAudio(true);
+          });
+      }
+    }
+  }, [audioUrl, triedAudio]);
+  if (!isVisible) return null;
   return (
     <div
       style={{
@@ -1577,6 +1633,9 @@ export const AIExplanation = ({
           {children}
         </div>
       </div>
+      {audioUrl && (
+        <audio autoPlay ref={audioRef} src={audioUrl ?? undefined} />
+      )}
     </div>
   );
 };

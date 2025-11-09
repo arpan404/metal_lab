@@ -1,15 +1,11 @@
 "use client";
 import * as THREE from "three";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import React from "react";
 import DraggableCard from "../atomic/draggable-card";
-import Image from "next/image";
-import { set } from "@elevenlabs/elevenlabs-js/core/schemas";
-import { Bot, User } from "lucide-react";
 
 type ElectricFieldSimulationContext = {
   // Define any state or methods you want to expose via context
@@ -28,21 +24,26 @@ type ElectricFieldSimulationContext = {
   toggleFieldDensity: () => void;
 
   mountRef: React.RefObject<HTMLDivElement | null>;
-  aiMode: boolean;
-  toggleAIMode: () => void;
-  stateOfSimulation: {
-    aiModeState: unknown | null;
-    manualModeState: unknown | null;
-  };
-  setStateOfSimulation: React.Dispatch<
-    React.SetStateAction<{
-      aiModeState: unknown | null;
-      manualModeState: unknown | null;
-    }>
-  >;
-
   showFieldLines: boolean;
   toggleFieldLines: () => void;
+
+  // Observations and state tracking for AI chat
+  observationLog: string[];
+  addObservation: (observation: string) => void;
+
+  // Test charge hover state for tooltip
+  testChargeHoverState: { isHovering: boolean; position: { x: number; y: number } };
+  updateTestChargeHoverState: (isHovering: boolean, position: { x: number; y: number }) => void;
+
+  // Get current simulation state for AI context
+  getSimulationState: () => {
+    charge1Magnitude: number;
+    charge2Magnitude: number;
+    fieldDensity: number;
+    showFieldLines: boolean;
+    testChargePosition?: THREE.Vector3;
+    forceAtTestCharge?: THREE.Vector3;
+  };
 };
 
 export const electricFieldSimulationContext =
@@ -70,17 +71,45 @@ export const ElectricFieldSimulationProvider = ({
 
   const mountRef = useRef<HTMLDivElement | null>(null);
 
-  const [aiMode, setAIMode] = useState(true);
-  const toggleAIMode = () => setAIMode(!aiMode);
-  const [stateOfSimulation, setStateOfSimulation] = useState<{
-    aiModeState: unknown | null;
-    manualModeState: unknown | null;
-  }>({
-    aiModeState: null,
-    manualModeState: null,
-  });
   const [showFieldLines, setShowFieldLines] = useState(true);
   const toggleFieldLines = () => setShowFieldLines(!showFieldLines);
+
+  // Test charge state refs for real-time updates
+  const testChargePositionRef = useRef(new THREE.Vector3(0, 2, 0));
+  const testChargeVelocityRef = useRef(new THREE.Vector3(0, 0, 0));
+  const testChargeForceRef = useRef(new THREE.Vector3(0, 0, 0));
+
+  // Test charge hover state
+  const [testChargeHoverState, setTestChargeHoverState] = useState({
+    isHovering: false,
+    position: { x: 0, y: 0 },
+  });
+  
+  // Callback to update hover state from useEffect
+  const updateTestChargeHoverState = useCallback(
+    (isHovering: boolean, position: { x: number; y: number }) => {
+      setTestChargeHoverState({ isHovering, position });
+    },
+    []
+  );
+
+  // Observation log for AI chat context
+  const [observationLog, setObservationLog] = useState<string[]>([]);
+  const addObservation = (observation: string) => {
+    setObservationLog((prev) => [
+      ...prev,
+      `[${new Date().toLocaleTimeString()}] ${observation}`,
+    ]);
+  };
+
+  // Get current simulation state for AI
+  const getSimulationState = () => ({
+    charge1Magnitude: charge1.magnitude,
+    charge2Magnitude: charge2.magnitude,
+    fieldDensity,
+    showFieldLines,
+  });
+
   return (
     <electricFieldSimulationContext.Provider
       value={{
@@ -95,12 +124,13 @@ export const ElectricFieldSimulationProvider = ({
         showFieldDensity,
         toggleFieldDensity,
         mountRef,
-        stateOfSimulation,
-        aiMode,
-        toggleAIMode,
-        setStateOfSimulation,
         showFieldLines,
         toggleFieldLines,
+        observationLog,
+        addObservation,
+        testChargeHoverState,
+        updateTestChargeHoverState,
+        getSimulationState,
       }}
     >
       {children}
@@ -110,9 +140,6 @@ export const ElectricFieldSimulationProvider = ({
 
 export const useElectricFieldSimulation = () => {
   const context = React.useContext(electricFieldSimulationContext);
-  const currentState = context?.aiMode
-    ? context.stateOfSimulation.aiModeState
-    : context?.stateOfSimulation.manualModeState;
   if (!context) {
     throw new Error(
       "useElectricFieldSimulation must be used within a ElectricFieldSimulationProvider"
@@ -178,7 +205,17 @@ export const useElectricFieldSimulation = () => {
     gridHelper.position.y = -0.1;
     scene.add(gridHelper);
 
-    // constants - use refs for reactive values
+    // Test charge state refs for real-time updates
+    const testChargePositionRef = { current: new THREE.Vector3(0, 2, 0) };
+    const testChargeVelocityRef = { current: new THREE.Vector3(0, 0, 0) };
+    const testChargeForceRef = { current: new THREE.Vector3(0, 0, 0) };
+
+    // Test charge hover state ref
+    const testChargeHoverStateRef = {
+      current: { isHovering: false, position: { x: 0, y: 0 } },
+    };
+
+    // Refs for charge magnitudes
     const q1Ref = { current: context.charge1.magnitude };
     const q2Ref = { current: context.charge2.magnitude };
 
@@ -389,6 +426,17 @@ export const useElectricFieldSimulation = () => {
     testCharge.position.set(0, 2, 0);
     scene.add(testCharge);
 
+    // Create a separate invisible mesh for raycasting (no longer used but kept for cleanup)
+    const testChargeRaycastGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+    const testChargeRaycastMaterial = new THREE.MeshBasicMaterial({
+      visible: false,
+    });
+    const testChargeRaycast = new THREE.Mesh(
+      testChargeRaycastGeometry,
+      testChargeRaycastMaterial
+    );
+    testCharge.add(testChargeRaycast); // Attach to test charge so it moves with it
+
     // Force vector on test charge
     const forceArrowHelper = new THREE.ArrowHelper(
       new THREE.Vector3(1, 0, 0),
@@ -399,6 +447,8 @@ export const useElectricFieldSimulation = () => {
       0.2
     );
     scene.add(forceArrowHelper);
+
+    // Removed raycaster and mouse interaction since tooltip is always visible
 
     // Function to update charge visuals when magnitude changes
     function updateChargeVisuals() {
@@ -464,18 +514,15 @@ export const useElectricFieldSimulation = () => {
     let animationId: number;
     let prevFieldDensity = context.fieldDensity;
     let prevShowFieldLines = context.showFieldLines;
-    let lastUpdateTime = 0;
-    const updateInterval = 1000 / 60; // 60 FPS cap
+    let lastPhysicsUpdateTime = 0;
+    const physicsUpdateInterval = 1000 / 10; // 10 FPS for physics state updates to prevent render issues
 
     const animate = (currentTime: number) => {
       animationId = requestAnimationFrame(animate);
 
-      // Throttle updates to maintain consistent frame rate
-      const deltaTime = currentTime - lastUpdateTime;
-      if (deltaTime < updateInterval) {
-        return;
-      }
-      lastUpdateTime = currentTime - (deltaTime % updateInterval);
+      // Always render the scene regardless of updates
+      controls.update();
+      renderer.render(scene, camera);
 
       // Update magnitude refs from context
       const newQ1 = context.charge1.magnitude;
@@ -491,6 +538,30 @@ export const useElectricFieldSimulation = () => {
         fieldLinesVisibilityChanged;
 
       if (needsFieldUpdate) {
+        // Log observations when parameters change
+        if (q1Ref.current !== newQ1) {
+          const sign1 = newQ1 > 0 ? "positive" : "negative";
+          context.addObservation(
+            `Charge 1 changed to ${newQ1.toFixed(2)} (${sign1})`
+          );
+        }
+        if (q2Ref.current !== newQ2) {
+          const sign2 = newQ2 > 0 ? "positive" : "negative";
+          context.addObservation(
+            `Charge 2 changed to ${newQ2.toFixed(2)} (${sign2})`
+          );
+        }
+        if (fieldDensityChanged) {
+          context.addObservation(
+            `Field density changed to ${context.fieldDensity.toFixed(1)}x`
+          );
+        }
+        if (fieldLinesVisibilityChanged) {
+          context.addObservation(
+            `Field lines ${context.showFieldLines ? "shown" : "hidden"}`
+          );
+        }
+
         q1Ref.current = newQ1;
         q2Ref.current = newQ2;
         prevFieldDensity = context.fieldDensity;
@@ -512,21 +583,30 @@ export const useElectricFieldSimulation = () => {
 
         // Animate test charge in a circle
         const radius = 5;
-        testCharge.position.x = Math.cos(time * 0.5) * radius;
-        testCharge.position.z = Math.sin(time * 0.5) * radius;
+        const angularSpeed = 0.5;
+        const newX = Math.cos(time * angularSpeed) * radius;
+        const newZ = Math.sin(time * angularSpeed) * radius;
+
+        testCharge.position.x = newX;
+        testCharge.position.z = newZ;
         testCharge.position.y = 1;
+
+        // Calculate velocity (derivative of position)
+        const velocity = new THREE.Vector3(
+          -Math.sin(time * angularSpeed) * radius * angularSpeed,
+          0,
+          Math.cos(time * angularSpeed) * radius * angularSpeed
+        );
 
         // Update force arrow
         const force = electricFieldAtPoint(testCharge.position);
+
         if (force.length() > 0.01) {
           forceArrowHelper.position.copy(testCharge.position);
           forceArrowHelper.setDirection(force.clone().normalize());
           forceArrowHelper.setLength(Math.min(force.length() * 2, 3));
         }
       }
-
-      controls.update();
-      renderer.render(scene, camera);
     };
     animate(0);
 
@@ -552,6 +632,7 @@ export const useElectricFieldSimulation = () => {
       // Dispose of shared geometries
       sharedSphereGeometry.dispose();
       sharedGlowGeometry.dispose();
+      testChargeRaycastGeometry.dispose();
 
       // Dispose of instanced arrows
       if (instancedArrows) {
@@ -595,33 +676,68 @@ export function ManualControls() {
     setCharge2,
     fieldDensity,
     setFieldDensity,
-    aiMode,
+    showFieldLines,
+    toggleFieldLines,
+    isPlaying,
+    togglePlay,
   } = useElectricFieldSimulation();
-
-  // Don't show manual controls when in AI mode
-  if (aiMode) return null;
 
   return (
     <DraggableCard
-      initialPosition={{ x: 20, y: 50 }}
-      initialSize={{ width: 340, height: "auto" }}
-      minSize={{ width: 280, height: 200 }}
-      maxSize={{ width: 500, height: 700 }}
+      initialPosition={{ x: 20, y: 80 }}
+      initialSize={{ width: 320, height: "auto" }}
+      minSize={{ width: 280, height: 300 }}
+      maxSize={{ width: 400, height: 600 }}
+      className="bg-black/90 backdrop-blur-sm border-zinc-700 shadow-2xl"
     >
-      <CardContent className="px-4 py-4 space-y-5">
-        {/* Charge 1 Controls */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-200">Charge 1</h3>
-            <span className="text-xs font-mono text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded">
-              {charge1.magnitude > 0 ? "+" : ""}
-              {charge1.magnitude.toFixed(2)}
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Magnitude</label>
+      <CardContent className="p-4 space-y-4">
+        {/* Header */}
+        <div className="text-center">
+          <h2 className="text-sm font-semibold text-white">
+            Electric Field Controls
+          </h2>
+        </div>
+
+        {/* Play/Pause */}
+        <div className="flex items-center justify-between p-2 bg-zinc-800/50 rounded-lg">
+          <span className="text-sm font-medium text-zinc-200">Simulation</span>
+          <button
+            onClick={togglePlay}
+            className={cn(
+              "px-3 py-1 rounded text-sm font-medium transition-all",
+              isPlaying
+                ? "bg-red-600 hover:bg-red-700 text-white"
+                : "bg-green-600 hover:bg-green-700 text-white"
+            )}
+          >
+            {isPlaying ? "Pause" : "Play"}
+          </button>
+        </div>
+
+        {/* Charges in a grid */}
+        <div className="grid grid-cols-2 gap-3">
+          {/* Charge 1 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-zinc-200">
+                Charge 1
+              </label>
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 text-xs font-mono rounded",
+                  charge1.magnitude > 0
+                    ? "bg-red-500/20 text-red-300"
+                    : "bg-blue-500/20 text-blue-300"
+                )}
+              >
+                {charge1.magnitude > 0 ? "+" : ""}
+                {charge1.magnitude.toFixed(1)}
+              </span>
+            </div>
             <input
-              type="number"
+              type="range"
+              min="-10"
+              max="10"
               step="0.1"
               value={charge1.magnitude}
               onChange={(e) =>
@@ -630,27 +746,37 @@ export function ManualControls() {
                   magnitude: parseFloat(e.target.value) || 0,
                 })
               }
-              className="w-full bg-zinc-800/60 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-transparent transition-all"
+              className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer slider-thumb"
             />
+            <div className="flex justify-between text-xs text-zinc-500">
+              <span>-10</span>
+              <span>0</span>
+              <span>+10</span>
+            </div>
           </div>
-        </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-800" />
-
-        {/* Charge 2 Controls */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-200">Charge 2</h3>
-            <span className="text-xs font-mono text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded">
-              {charge2.magnitude > 0 ? "+" : ""}
-              {charge2.magnitude.toFixed(2)}
-            </span>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs text-zinc-400">Magnitude</label>
+          {/* Charge 2 */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-medium text-zinc-200">
+                Charge 2
+              </label>
+              <span
+                className={cn(
+                  "px-1.5 py-0.5 text-xs font-mono rounded",
+                  charge2.magnitude > 0
+                    ? "bg-red-500/20 text-red-300"
+                    : "bg-blue-500/20 text-blue-300"
+                )}
+              >
+                {charge2.magnitude > 0 ? "+" : ""}
+                {charge2.magnitude.toFixed(1)}
+              </span>
+            </div>
             <input
-              type="number"
+              type="range"
+              min="-10"
+              max="10"
               step="0.1"
               value={charge2.magnitude}
               onChange={(e) =>
@@ -659,263 +785,84 @@ export function ManualControls() {
                   magnitude: parseFloat(e.target.value) || 0,
                 })
               }
-              className="w-full bg-zinc-800/60 border border-zinc-700 rounded-md px-3 py-2 text-sm text-zinc-200 placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-transparent transition-all"
+              className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer slider-thumb"
             />
+            <div className="flex justify-between text-xs text-zinc-500">
+              <span>-10</span>
+              <span>0</span>
+              <span>+10</span>
+            </div>
           </div>
         </div>
 
-        {/* Divider */}
-        <div className="border-t border-zinc-800" />
-
-        {/* Field Density Control */}
-        <div className="space-y-2">
+        {/* Field Controls */}
+        <div className="space-y-3">
+          {/* Field Density */}
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-200">
+            <label className="text-xs font-medium text-zinc-200">
               Field Density
-            </h3>
-            <span className="text-xs font-mono text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded">
+            </label>
+            <span className="px-1.5 py-0.5 text-xs font-mono bg-zinc-700 text-zinc-300 rounded">
               {fieldDensity.toFixed(1)}x
             </span>
           </div>
-          <div className="space-y-2">
-            <input
-              type="range"
-              min="0.1"
-              max="5"
-              step="0.1"
-              value={fieldDensity}
-              onChange={(e) => setFieldDensity(parseFloat(e.target.value))}
-              className="w-full h-2 bg-zinc-800/60 rounded-lg appearance-none cursor-pointer slider-thumb"
-              style={{
-                background: `linear-gradient(to right, rgb(82 82 91) 0%, rgb(82 82 91) ${
-                  ((fieldDensity - 0.1) / (5 - 0.1)) * 100
-                }%, rgb(39 39 42) ${
-                  ((fieldDensity - 0.1) / (5 - 0.1)) * 100
-                }%, rgb(39 39 42) 100%)`,
-              }}
-            />
-            <div className="flex justify-between text-xs text-zinc-500">
-              <span>0.1</span>
-              <span>5.0</span>
-            </div>
+          <input
+            type="range"
+            min="0.1"
+            max="3"
+            step="0.1"
+            value={fieldDensity}
+            onChange={(e) => setFieldDensity(parseFloat(e.target.value))}
+            className="w-full h-1.5 bg-zinc-700 rounded-lg appearance-none cursor-pointer slider-thumb"
+          />
+
+          {/* Field Lines Toggle */}
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-200">
+              Field Lines
+            </span>
+            <button
+              onClick={toggleFieldLines}
+              className={cn(
+                "relative inline-flex items-center h-5 w-9 rounded-full transition-colors duration-200",
+                showFieldLines ? "bg-blue-600" : "bg-zinc-600"
+              )}
+            >
+              <span
+                className={cn(
+                  "h-3 w-3 transform rounded-full bg-white shadow transition-transform duration-200",
+                  showFieldLines ? "translate-x-5" : "translate-x-1"
+                )}
+              />
+            </button>
           </div>
+        </div>
+
+        {/* Instructions */}
+        <div className="text-xs text-zinc-400 bg-zinc-800/30 p-2 rounded">
+          <p className="font-medium text-zinc-300 mb-1">Controls:</p>
+          <p>• Adjust charges • Mouse orbit • AI chat</p>
         </div>
       </CardContent>
     </DraggableCard>
   );
 }
 
-export const AIExplanation = ({
-  text,
-  position,
-}: {
-  text: string;
-  position: { x: number; y: number };
-}) => {
-  const { aiMode } = useElectricFieldSimulation();
-  const [audioURL, setAudioURL] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-  
-  const generateAudio = async () => {
-    if (!text.trim()) {
-      return;
-    }
-
-    setAudioURL(null);
-
-    try {
-      const response = await fetch("/api/audio/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        setIsLoading(false);
-        console.log("Failed to generate audio");
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      setAudioURL(url);
-
-      // Auto-play
-      setTimeout(() => {
-        audioRef.current?.play().catch((e) => {
-          console.log("Auto-play blocked:", e);
-        });
-      }, 100);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    try {
-      if (!aiMode) {
-        // Start exit animation
-        setIsVisible(false);
-        // Remove from DOM after animation completes
-        setTimeout(() => setShouldRender(false), 500);
-        return;
-      }
-      
-      setIsLoading(true);
-      setShouldRender(true);
-      generateAudio();
-    } catch (e) {
-      console.error("Error generating audio:", e);
-    }
-  }, [text, aiMode]);
-
-  // Trigger enter animation after component is rendered
-  useEffect(() => {
-    if (!isLoading && aiMode && shouldRender) {
-      // Small delay to ensure DOM is ready
-      setTimeout(() => setIsVisible(true), 50);
-      
-      // Auto-hide after audio finishes or after 10 seconds
-      const hideTimer = setTimeout(() => {
-        setIsVisible(false);
-        setTimeout(() => setShouldRender(false), 500);
-      }, 10000); // 10 seconds display time
-      
-      return () => clearTimeout(hideTimer);
-    }
-  }, [isLoading, aiMode, shouldRender]);
-
-  // Listen to audio end event
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleAudioEnd = () => {
-      // Wait 2 seconds after audio ends, then hide
-      setTimeout(() => {
-        setIsVisible(false);
-        setTimeout(() => setShouldRender(false), 500);
-      }, 2000);
-    };
-
-    audio.addEventListener("ended", handleAudioEnd);
-    return () => audio.removeEventListener("ended", handleAudioEnd);
-  }, [audioURL]);
-
-  if (!shouldRender) return null;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: position.x,
-        top: position.y,
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible ? "translateY(0) scale(1)" : "translateY(20px) scale(0.95)",
-        transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        pointerEvents: isVisible ? "auto" : "none",
-      }}
-    >
-      <div className="relative flex items-start">
-        <Image
-          src="/mela.webp"
-          width={200}
-          height={400}
-          draggable={false}
-          alt="AI Explanation"
-          className="rounded-2xl rounded-tr-none object-cover object-top select-none"
-          style={{
-            transform: isVisible ? "translateX(0)" : "translateX(-30px)",
-            opacity: isVisible ? 1 : 0,
-            transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s",
-          }}
-        />
-        <div 
-          className="bg-white rounded-2xl rounded-bl-none shadow-lg p-4 max-w-xs -ml-10"
-          style={{
-            transform: isVisible ? "translateX(0)" : "translateX(30px)",
-            opacity: isVisible ? 1 : 0,
-            transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s",
-          }}
-        >
-          <p className="text-sm text-gray-800">{text}</p>
-        </div>
-      </div>
-      {audioURL && (
-        <audio 
-          ref={audioRef} 
-          src={audioURL} 
-          className="mt-2 w-full"
-          style={{
-            opacity: isVisible ? 1 : 0,
-            transition: "opacity 0.4s ease-in-out 0.4s",
-          }}
-        />
-      )}
-    </div>
-  );
-};
+// AI Explanation removed - interaction now happens through side chat
 
 export default function ElectricFieldSimulation() {
   const {
-    isPlaying,
-    togglePlay,
-    charge1,
-    charge2,
-    setCharge1,
-    setCharge2,
-    fieldDensity,
-    setFieldDensity,
-    showFieldDensity,
-    toggleFieldDensity,
     mountRef,
-    aiMode,
-    toggleAIMode,
+    testChargeHoverState,
   } = useElectricFieldSimulation();
+
   return (
     <div className="relative w-full h-screen bg-gray-900">
-      {/* 3D Scene Canvas*/}
-      <div ref={mountRef} className="w-full h-full bg-zinc-900" />
-      
-      {/* AI/Manual Mode Toggle */}
-      <div className="absolute bottom-4 left-4 z-50">
-        <button
-          onClick={toggleAIMode}
-          className={cn(
-            "relative inline-flex items-center h-8 w-16 rounded-full transition-colors duration-200",
-            aiMode ? "bg-purple-600" : "bg-zinc-700"
-          )}
-          aria-label={aiMode ? "Switch to Manual Mode" : "Switch to AI Mode"}
-        >
-          {/* Toggle Circle */}
-          <span
-            className={cn(
-              "h-6 w-6 transform rounded-full bg-white shadow-lg transition-transform duration-200 flex items-center justify-center cursor-pointer",
-              aiMode ? "translate-x-9" : "translate-x-1"
-            )}
-          >
-            {aiMode ? (
-              <Bot className="w-3.5 h-3.5 text-purple-600" />
-            ) : (
-              <User className="w-3.5 h-3.5 text-zinc-700" />
-            )}
-          </span>
-        </button>
-      </div>
+      {/* 3D Scene Canvas - adjusted for title bar */}
+      <div ref={mountRef} className="w-full h-full bg-zinc-900 pt-16" />
 
+      {/* Manual controls */}
       <ManualControls />
-      <AIExplanation
-        text="This is an AI-generated explanation."
-        position={{ x: 600, y: 700 }}
-      />
     </div>
   );
 }
