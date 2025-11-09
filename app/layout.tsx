@@ -1,9 +1,10 @@
 import { type Metadata } from "next";
-import { ClerkProvider, SignedIn } from "@clerk/nextjs";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import {  Header } from "@/components/nav/header";
+import { ClerkProvider, SignedIn } from "@clerk/nextjs";
+import { Header } from "@/components/nav/header";
 import { NavbarProvider } from "@/lib/contexts/navbar-context";
+import { AppStoreProvider } from "@/components/providers/app-store-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Well Name Not Found",
-  description: "A modern well management platform",
+  title: "Metal Lab - Science & Motions",
+  description: "Explore the wonders of science through interactive simulations and experiments.",
 };
 
 export default function RootLayout({
@@ -32,9 +33,11 @@ export default function RootLayout({
           className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen h-screen`}
         >
           <SignedIn>
-            <NavbarProvider>
-              <Header>{children}</Header>
-            </NavbarProvider>
+            <AppStoreProvider>
+              <NavbarProvider>
+                <Header>{children}</Header>
+              </NavbarProvider>
+            </AppStoreProvider>
           </SignedIn>
         </body>
       </html>

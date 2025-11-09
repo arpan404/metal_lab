@@ -1,82 +1,54 @@
--- Seed data for initial testing
--- First, update user_state
-UPDATE user_state
-SET 
-  time_today = 120, -- 2 hours today
-  time_this_week = 720, -- 12 hours this week
-  level = 3,
-  experiments_completed = 5,
-  labs_in_progress = 2
-WHERE id = 1;
+-- Seed data for the new lab system
+-- This will be run after the schema.sql is applied
 
--- Update learning_state
-UPDATE learning_state
-SET 
-  current_module = 'Quantum Mechanics: Wave Functions',
-  progress = 65
-WHERE id = 1;
+-- Note: Most data will be initialized automatically via the initialize_user_labs() function
+-- when users sign up. This seed file can be used for additional default data.
 
--- Update stats with complex data
-UPDATE stats
-SET 
-  total_hours = 48,
-  average_score = 85.5,
-  day_streak = 14,
-  items = ARRAY[
-    ROW(
-      'flask',
-      'Experiments Completed',
-      '5',
-      'bg-emerald-500',
-      ROW('+3 this week', true),
-      NULL
-    )::stat_item,
-    ROW(
-      'atom',
-      'Labs In Progress',
-      '2',
-      'bg-sky-500',
-      ROW('+1 today', true),
-      NULL
-    )::stat_item,
-    ROW(
-      'flame',
-      'Current Streak',
-      '14 days',
-      'bg-orange-500',
-      NULL,
-      'Keep up the momentum!'
-    )::stat_item,
-    ROW(
-      'trophy',
-      'Current Level',
-      '3',
-      'bg-purple-500',
-      ROW('85.5% avg score', true),
-      NULL
-    )::stat_item
-  ],
-  recent_activity = ARRAY[
-    ROW(
-      '1',
-      'Wave Function Basics',
-      'Quantum Mechanics',
-      100,
-      '2h ago'
-    )::activity,
-    ROW(
-      '2',
-      'Particle in a Box',
-      'Quantum Mechanics',
-      75,
-      '5h ago'
-    )::activity,
-    ROW(
-      '3',
-      'Harmonic Oscillator',
-      'Quantum Mechanics',
-      25,
-      '1d ago'
-    )::activity
-  ]
-WHERE id = 1;
+-- Example: Initialize some default badges that all users can earn
+INSERT INTO public.badges (id, user_id, name, description, icon, color, is_earned)
+SELECT
+  'first_lab',
+  auth.uid(),
+  'First Steps',
+  'Completed your first lab simulation',
+  '🎯',
+  'bg-blue-500',
+  false
+WHERE auth.uid() IS NOT NULL
+ON CONFLICT (id, user_id) DO NOTHING;
+
+INSERT INTO public.badges (id, user_id, name, description, icon, color, is_earned)
+SELECT
+  'physics_master',
+  auth.uid(),
+  'Physics Master',
+  'Completed all physics simulations',
+  '⚛️',
+  'bg-purple-500',
+  false
+WHERE auth.uid() IS NOT NULL
+ON CONFLICT (id, user_id) DO NOTHING;
+
+INSERT INTO public.badges (id, user_id, name, description, icon, color, is_earned)
+SELECT
+  'streak_7',
+  auth.uid(),
+  'Week Warrior',
+  'Maintained a 7-day learning streak',
+  '🔥',
+  'bg-orange-500',
+  false
+WHERE auth.uid() IS NOT NULL
+ON CONFLICT (id, user_id) DO NOTHING;
+
+INSERT INTO public.badges (id, user_id, name, description, icon, color, is_earned)
+SELECT
+  'level_5',
+  auth.uid(),
+  'Rising Star',
+  'Reached level 5',
+  '⭐',
+  'bg-yellow-500',
+  false
+WHERE auth.uid() IS NOT NULL
+ON CONFLICT (id, user_id) DO NOTHING;

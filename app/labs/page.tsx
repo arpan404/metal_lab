@@ -1,68 +1,76 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react'
-import { LabCard } from '@/components/labs/lab-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { useAppStore } from '@/lib/app-store'
-import { 
-  Filter, 
-  Search, 
-  Sparkles, 
-  TrendingUp, 
-  Target, 
+import React, { useState } from "react";
+import { LabCard } from "@/components/labs/lab-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useAppStore } from "@/lib/app-store";
+import {
+  Filter,
+  Search,
+  Sparkles,
+  TrendingUp,
+  Target,
   Lock,
   CheckCircle,
   Play,
   Layers,
   Award,
-  ArrowRight
-} from 'lucide-react'
-import { IconFlask, IconAtom, IconChartBar, IconTrophy, IconLock, IconPlayerPlay } from '@tabler/icons-react'
+  ArrowRight,
+} from "lucide-react";
+import {
+  IconFlask,
+  IconAtom,
+  IconChartBar,
+  IconTrophy,
+  IconLock,
+  IconPlayerPlay,
+} from "@tabler/icons-react";
 
 export default function LabsPage() {
-  const { labs, stats: userStats } = useAppStore()
-  const [filter, setFilter] = useState<'all' | 'completed' | 'in-progress' | 'locked'>('all')
+  const { labs, stats: userStats } = useAppStore();
+  const [filter, setFilter] = useState<
+    "all" | "completed" | "in-progress" | "locked"
+  >("all");
 
-  const filteredLabs = labs.filter(lab => {
-    if (filter === 'all') return true
-    return lab.status === filter
-  })
+  const filteredLabs = labs.filter((lab) => {
+    if (filter === "all") return true;
+    return lab.status === filter;
+  });
 
-  const completedCount = labs.filter(l => l.status === 'completed').length
-  const inProgressCount = labs.filter(l => l.status === 'in-progress').length
-  const lockedCount = labs.filter(l => l.status === 'locked').length
+  const completedCount = labs.filter((l) => l.status === "completed").length;
+  const inProgressCount = labs.filter((l) => l.status === "in-progress").length;
+  const lockedCount = labs.filter((l) => l.status === "locked").length;
 
   const statsDisplay = [
     {
       icon: <CheckCircle className="h-6 w-6" />,
-      label: 'Completed Labs',
+      label: "Completed Labs",
       value: completedCount,
-      iconBg: 'bg-emerald-500',
-      trend: { value: '+3 this month', positive: true },
+      iconBg: "bg-emerald-500",
+      trend: { value: "+3 this month", positive: true },
     },
     {
       icon: <Play className="h-6 w-6" />,
-      label: 'In Progress',
+      label: "In Progress",
       value: inProgressCount,
-      iconBg: 'bg-amber-500',
-      description: 'Keep going!',
+      iconBg: "bg-amber-500",
+      description: "Keep going!",
     },
     {
       icon: <Layers className="h-6 w-6" />,
-      label: 'Total Labs',
+      label: "Total Labs",
       value: labs.length,
-      iconBg: 'bg-blue-500',
+      iconBg: "bg-blue-500",
       description: `${lockedCount} locked`,
     },
-  ]
+  ];
 
   return (
     <main className="min-h-screen bg-linear-to-br from-slate-50 via-white to-blue-50/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
         {/* Header Section */}
         <div className="flex items-start justify-between">
           <div>
@@ -72,14 +80,14 @@ export default function LabsPage() {
               </div>
               <Badge className="bg-purple-50 text-purple-700 border-purple-200">
                 <Sparkles className="w-3 h-3 mr-1" />
-                {labs.length} Experiments Available
+                {labs.length} Labs Available
               </Badge>
             </div>
             <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
-              Physics Labs
+              Interactive Labs
             </h1>
             <p className="text-lg text-slate-600">
-              Explore interactive experiments and master complex concepts
+              Dive into hands-on virtual labs that bring any concept to life
             </p>
           </div>
           <div className="flex gap-2">
@@ -95,10 +103,15 @@ export default function LabsPage() {
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {statsDisplay.map((stat, index) => (
-            <Card key={index} className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-gray-200/60 overflow-hidden">
+            <Card
+              key={index}
+              className="group hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border-gray-200/60 overflow-hidden"
+            >
               <CardContent className="p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className={`w-12 h-12 rounded-xl ${stat.iconBg} text-white flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-lg`}>
+                  <div
+                    className={`w-12 h-12 rounded-xl ${stat.iconBg} text-white flex items-center justify-center transition-transform duration-300 group-hover:scale-110 shadow-lg`}
+                  >
                     {stat.icon}
                   </div>
                   {stat.trend && (
@@ -128,12 +141,18 @@ export default function LabsPage() {
         <div>
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-bold text-slate-900">Explore Labs</h2>
+              <h2 className="text-2xl font-bold text-slate-900">
+                Explore Labs
+              </h2>
               <Badge variant="outline" className="text-xs">
-                {filteredLabs.length} {filter === 'all' ? 'total' : filter.replace('-', ' ')}
+                {filteredLabs.length}{" "}
+                {filter === "all" ? "total" : filter.replace("-", " ")}
               </Badge>
             </div>
-            <Tabs value={filter} onValueChange={(value) => setFilter(value as any)}>
+            <Tabs
+              value={filter}
+              onValueChange={(value) => setFilter(value as any)}
+            >
               <TabsList className="grid grid-cols-4 w-fit">
                 <TabsTrigger value="all" className="gap-1.5">
                   <Layers className="w-3.5 h-3.5" />
@@ -157,7 +176,7 @@ export default function LabsPage() {
 
           {filteredLabs.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredLabs.map(lab => (
+              {filteredLabs.map((lab) => (
                 <LabCard key={lab.id} lab={lab} />
               ))}
             </div>
@@ -166,9 +185,13 @@ export default function LabsPage() {
               <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-gray-400" />
               </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">No labs found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters to see more results</p>
-              <Button variant="outline" onClick={() => setFilter('all')}>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                No labs found
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Try adjusting your filters to see more results
+              </p>
+              <Button variant="outline" onClick={() => setFilter("all")}>
                 View All Labs
               </Button>
             </Card>
@@ -176,5 +199,5 @@ export default function LabsPage() {
         </div>
       </div>
     </main>
-  )
+  );
 }
