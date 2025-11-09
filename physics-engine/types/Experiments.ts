@@ -9,7 +9,7 @@ export interface ExperimentState {
   objects: ExperimentObject[];
   elapsedTime: number;
   frameCount: number;
-  waveField?: number[]; // For quantum experiments
+  waveField?: number[]; 
 }
 
 export interface ExperimentObject {
