@@ -10,18 +10,55 @@ import ElectricFieldSimulation, {
   ElectricFieldSimulationProvider,
 } from "@/components/labs/electric-field-simulation";
 import { componentMap } from "@/components/labs/componentMap";
+import { useTransformerSimulation } from "@/components/labs/transformer-simulation";
 
-export default function SimulationPage({
-  params,
-}: {
-  params: Promise<{ uid: string }>;
-}) {
-  const { uid } = use(params);
+// Wrapper component to provide chat with simulation context
+function SimulationWithChat({ uid }: { uid: string }) {
   const { isChatOpen, openChat, closeChat } = useLabChat();
   const { isNavbarVisible } = useNavbar();
   const LabComponent = componentMap[uid]?.component || (() => <div>Lab not found</div>);
+  
+  // Try to get transformer simulation context if available
+  let transformerContext = null;
+  try {
+    if (uid === "transformerSimulation") {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      transformerContext = useTransformerSimulation();
+    }
+  } catch (e) {
+    // Context not available, that's fine
+  }
+
+  // Build experiment details with transformer state if available
+  const experimentDetails = {
+    name: componentMap[uid]?.name || "Unknown Experiment",
+    description: componentMap[uid]?.description || "No description available.",
+    currentState: transformerContext ? {
+      currentStep: transformerContext.currentStep,
+      inputText: transformerContext.inputText,
+      predictedToken: transformerContext.predictedToken,
+      aiMode: transformerContext.aiMode,
+      manualMode: transformerContext.manualMode,
+      autoContinue: transformerContext.autoContinue,
+      isPlaying: transformerContext.isPlaying,
+      generatedTokenCount: transformerContext.generatedTokenCount,
+      maxTokens: transformerContext.maxTokens,
+      tokenizedInput: transformerContext.tokenizedInput,
+      stepByStep: transformerContext.stepByStep,
+    } : {},
+    variables: transformerContext ? {
+      "Current Step": transformerContext.currentStep,
+      "Input Text": transformerContext.inputText,
+      "Predicted Token": transformerContext.predictedToken,
+      "AI Mode": transformerContext.aiMode ? "ON" : "OFF",
+      "Manual Mode": transformerContext.manualMode ? "ON" : "OFF",
+      "Auto Continue": transformerContext.autoContinue ? "ON" : "OFF",
+      "Generated Tokens": `${transformerContext.generatedTokenCount}/${transformerContext.maxTokens}`,
+    } : {}
+  };
+
   return (
-    <main className="relative h-full bg-gray-900">
+    <>
       <div className="p-0">
         <LabComponent />
       </div>
@@ -39,14 +76,26 @@ export default function SimulationPage({
       )}
 
       {/* Chat sidebar */}
-      <SideChat isOpen={isChatOpen} onClose={closeChat} labUID={uid} experimentDetails={
-        {
-          name: componentMap[uid]?.name || "Unknown Experiment",
-          description: componentMap[uid]?.description || "No description available.",
-          currentState: {},
-          variables: {}
-        }
-      }/>
+      <SideChat 
+        isOpen={isChatOpen} 
+        onClose={closeChat} 
+        labUID={uid} 
+        experimentDetails={experimentDetails}
+      />
+    </>
+  );
+}
+
+export default function SimulationPage({
+  params,
+}: {
+  params: Promise<{ uid: string }>;
+}) {
+  const { uid } = use(params);
+  
+  return (
+    <main className="relative h-full bg-gray-900">
+      <SimulationWithChat uid={uid} />
     </main>
   );
 }
