@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metal Lab - Experiment Test Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 300px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #4CAF50;
+        }
+
+        #viewport {
+            flex: 1;
+            position: relative;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #4CAF50;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            color: #00d4ff;
+        }
+
+        .experiment-btn, .game-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .experiment-btn:hover, .game-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .experiment-btn.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+        }
+
+        .game-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .game-btn:hover {
+            box-shadow: 0 5px 15px rgba(245, 87, 108, 0.4);
+        }
+
+        .controls {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+        }
+
+        .value-display {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 250px;
+            border: 2px solid #00d4ff;
+        }
+
+        #info-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .action-btn {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .action-btn:hover {
+            background: #45a049;
+        }
+
+        .action-btn.reset {
+            background: #f44336;
+        }
+
+        .action-btn.reset:hover {
+            background: #da190b;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <h1>🧪 Metal Lab</h1>
+
+            <h2>Experiments</h2>
+            <button class="experiment-btn" data-experiment="foucault">Foucault Pendulum</button>
+            <button class="experiment-btn" data-experiment="double-slit">Young's Double Slit</button>
+            <button class="experiment-btn" data-experiment="rutherford">Rutherford Gold Foil</button>
+            <button class="experiment-btn" data-experiment="nascar">NASCAR Track Banking</button>
+            <button class="experiment-btn" data-experiment="millikan">Millikan Oil Drop</button>
+
+            <h2>Games</h2>
+            <button class="game-btn" data-game="banking-challenge">🏁 Banking Track Challenge</button>
+            <button class="game-btn" data-game="atomic-deflection">💥 Atomic Deflection</button>
+
+            <div class="controls">
+                <button class="action-btn" id="start-btn">Start</button>
+                <button class="action-btn" id="pause-btn">Pause</button>
+                <button class="action-btn reset" id="reset-btn">Reset</button>
+            </div>
+
+            <div id="parameter-controls"></div>
+        </div>
+
+        <div id="viewport">
+            <div id="loading">
+                <div class="spinner"></div>
+                <p>Loading Physics Engine...</p>
+            </div>
+
+            <div id="canvas-container"></div>
+
+            <div id="info-panel" style="display: none;">
+                <h3 id="experiment-title">Experiment</h3>
+                <div id="stats-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Simple localhost testing stub
+        // In production, this would import actual Three.js and physics engine modules
+
+        console.log('🧪 Metal Lab Test Environment Initialized');
+        console.log('📦 Available Experiments:');
+        console.log('  - Foucault Pendulum (Enhanced with air resistance & precession tracking)');
+        console.log('  - Young\'s Double Slit (Enhanced with photon mode)');
+        console.log('  - Rutherford Gold Foil (Enhanced with particle trails)');
+        console.log('  - NASCAR Banking (Enhanced with downforce & tire physics)');
+        console.log('  - Millikan Oil Drop (Enhanced with Brownian motion)');
+        console.log('');
+        console.log('🎮 Available Games:');
+        console.log('  - Banking Track Challenge (Enhanced with scoring & combos)');
+        console.log('  - Atomic Deflection (Enhanced with difficulty progression & power-ups)');
+
+        // Hide loading screen after 2 seconds
+        setTimeout(() => {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('info-panel').style.display = 'block';
+        }, 2000);
+
+        // Experiment/Game selection
+        const experimentBtns = document.querySelectorAll('.experiment-btn');
+        const gameBtns = document.querySelectorAll('.game-btn');
+
+        experimentBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const experiment = btn.dataset.experiment;
+                experimentBtns.forEach(b => b.classList.remove('active'));
+                gameBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadExperiment(experiment);
+            });
+        });
+
+        gameBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const game = btn.dataset.game;
+                experimentBtns.forEach(b => b.classList.remove('active'));
+                gameBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadGame(game);
+            });
+        });
+
+        function loadExperiment(name) {
+            console.log(`Loading experiment: ${name}`);
+            document.getElementById('experiment-title').textContent = name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+            // Update info panel with mock data
+            const statsContainer = document.getElementById('stats-container');
+            statsContainer.innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-label">Status:</span>
+                    <span class="stat-value">Ready</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Time:</span>
+                    <span class="stat-value">0.0s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FPS:</span>
+                    <span class="stat-value">60</span>
+                </div>
+            `;
+
+            // Display parameters based on experiment
+            displayParameters(name);
+        }
+
+        function loadGame(name) {
+            console.log(`Loading game: ${name}`);
+            document.getElementById('experiment-title').textContent = name.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+            const statsContainer = document.getElementById('stats-container');
+            statsContainer.innerHTML = `
+                <div class="stat-item">
+                    <span class="stat-label">Score:</span>
+                    <span class="stat-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Level:</span>
+                    <span class="stat-value">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Combo:</span>
+                    <span class="stat-value">0x</span>
+                </div>
+            `;
+        }
+
+        function displayParameters(experiment) {
+            const paramsContainer = document.getElementById('parameter-controls');
+            let html = '<h2>Parameters</h2>';
+
+            const params = getExperimentParameters(experiment);
+            params.forEach(param => {
+                html += `
+                    <div class="control-group">
+                        <label>${param.label}: <span class="value-display">${param.default}${param.unit}</span></label>
+                        <input type="range" min="${param.min}" max="${param.max}" value="${param.default}" step="${param.step}">
+                    </div>
+                `;
+            });
+
+            paramsContainer.innerHTML = html;
+        }
+
+        function getExperimentParameters(experiment) {
+            const paramMap = {
+                'foucault': [
+                    { label: 'Latitude', min: -90, max: 90, default: 45, step: 1, unit: '°' },
+                    { label: 'Length', min: 5, max: 30, default: 10, step: 0.5, unit: 'm' },
+                    { label: 'Mass', min: 1, max: 20, default: 5, step: 0.5, unit: 'kg' }
+                ],
+                'double-slit': [
+                    { label: 'Wavelength', min: 400, max: 700, default: 650, step: 10, unit: 'nm' },
+                    { label: 'Slit Separation', min: 50, max: 500, default: 100, step: 10, unit: 'μm' },
+                    { label: 'Photon Mode', min: 0, max: 1, default: 0, step: 1, unit: '' }
+                ],
+                'rutherford': [
+                    { label: 'Alpha Energy', min: 1, max: 10, default: 5.5, step: 0.5, unit: 'MeV' },
+                    { label: 'Emission Rate', min: 1, max: 100, default: 10, step: 1, unit: '/s' }
+                ],
+                'nascar': [
+                    { label: 'Bank Angle', min: 0, max: 45, default: 33, step: 1, unit: '°' },
+                    { label: 'Velocity', min: 20, max: 80, default: 50, step: 1, unit: 'm/s' },
+                    { label: 'Track Radius', min: 100, max: 400, default: 200, step: 10, unit: 'm' }
+                ],
+                'millikan': [
+                    { label: 'Voltage', min: 0, max: 10000, default: 5000, step: 100, unit: 'V' },
+                    { label: 'Plate Separation', min: 5, max: 50, default: 10, step: 1, unit: 'mm' }
+                ]
+            };
+
+            return paramMap[experiment] || [];
+        }
+
+        // Control buttons
+        document.getElementById('start-btn').addEventListener('click', () => {
+            console.log('▶️ Starting simulation...');
+        });
+
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            console.log('⏸️ Pausing simulation...');
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            console.log('🔄 Resetting simulation...');
+        });
+
+        // Auto-load first experiment
+        experimentBtns[0].click();
+    </script>
+</body>
+</html>

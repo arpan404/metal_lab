@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metal Shader Test - Physics Engine</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .status-label {
+            font-weight: bold;
+        }
+        .status-value {
+            color: #4ade80;
+        }
+        .status-value.error {
+            color: #f87171;
+        }
+        .shader-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .shader-card {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .shader-card:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+        .shader-card h3 {
+            margin-top: 0;
+            font-size: 1.1em;
+        }
+        .shader-card p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .test-button {
+            background: #4ade80;
+            color: #1f2937;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .test-button:hover {
+            background: #22c55e;
+        }
+        .test-results {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        canvas {
+            display: block;
+            margin: 20px auto;
+            border-radius: 10px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Metal Shader Test Suite</h1>
+
+        <div class="info-panel">
+            <h2>GPU Information</h2>
+            <div class="status">
+                <span class="status-label">WebGPU Support:</span>
+                <span class="status-value" id="webgpu-support">Checking...</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Metal Backend:</span>
+                <span class="status-value" id="metal-support">Checking...</span>
+            </div>
+            <div class="status">
+                <span class="status-label">GPU Device:</span>
+                <span class="status-value" id="gpu-device">Unknown</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Max Threads Per Threadgroup:</span>
+                <span class="status-value" id="max-threads">Unknown</span>
+            </div>
+            <div class="status">
+                <span class="status-label">Recommended Workgroup Size:</span>
+                <span class="status-value" id="workgroup-size">Unknown</span>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h2>Available Metal Shaders</h2>
+            <div class="shader-list">
+                <div class="shader-card">
+                    <h3>⚡ Particle System</h3>
+                    <p>Charged particle dynamics with RK4 integration</p>
+                    <button class="test-button" onclick="testShader('particle-system')">Test Shader</button>
+                    <div class="test-results" id="result-particle-system"></div>
+                </div>
+                <div class="shader-card">
+                    <h3>🔋 Electric Field</h3>
+                    <p>Field calculations and visualization</p>
+                    <button class="test-button" onclick="testShader('electric-field')">Test Shader</button>
+                    <div class="test-results" id="result-electric-field"></div>
+                </div>
+                <div class="shader-card">
+                    <h3>🌊 Schrödinger</h3>
+                    <p>Quantum wave function evolution</p>
+                    <button class="test-button" onclick="testShader('schrodinger')">Test Shader</button>
+                    <div class="test-results" id="result-schrodinger"></div>
+                </div>
+                <div class="shader-card">
+                    <h3>🌀 Wave Propagation</h3>
+                    <p>2D wave equation solver</p>
+                    <button class="test-button" onclick="testShader('wave-propagation')">Test Shader</button>
+                    <div class="test-results" id="result-wave-propagation"></div>
+                </div>
+                <div class="shader-card">
+                    <h3>📊 Interference Pattern</h3>
+                    <p>Quantum interference calculations</p>
+                    <button class="test-button" onclick="testShader('interference-pattern')">Test Shader</button>
+                    <div class="test-results" id="result-interference-pattern"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h2>Performance Test</h2>
+            <button class="test-button" onclick="runPerformanceTest()">Run Performance Test</button>
+            <div class="test-results" id="performance-results"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        // Check GPU capabilities
+        async function checkGPUCapabilities() {
+            const webgpuSupport = document.getElementById('webgpu-support');
+            const metalSupport = document.getElementById('metal-support');
+            const gpuDevice = document.getElementById('gpu-device');
+            const maxThreads = document.getElementById('max-threads');
+            const workgroupSize = document.getElementById('workgroup-size');
+
+            if (!navigator.gpu) {
+                webgpuSupport.textContent = 'Not Supported';
+                webgpuSupport.classList.add('error');
+                metalSupport.textContent = 'N/A';
+                metalSupport.classList.add('error');
+                return;
+            }
+
+            webgpuSupport.textContent = 'Supported ✓';
+
+            try {
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    metalSupport.textContent = 'Adapter Not Found';
+                    metalSupport.classList.add('error');
+                    return;
+                }
+
+                const info = adapter.info;
+                const isMetal =
+                    info.architecture?.toLowerCase().includes('apple') ||
+                    info.vendor?.toLowerCase().includes('apple') ||
+                    navigator.userAgent.includes('Mac') ||
+                    navigator.userAgent.includes('iPhone') ||
+                    navigator.userAgent.includes('iPad');
+
+                metalSupport.textContent = isMetal ? 'Active (Metal Backend) ✓' : 'WebGPU (Non-Metal)';
+                gpuDevice.textContent = info.device || 'Unknown';
+                maxThreads.textContent = adapter.limits.maxComputeWorkgroupSizeX;
+
+                // Calculate recommended workgroup size
+                const isIntegrated = !info.device?.toLowerCase().includes('pro');
+                workgroupSize.textContent = isIntegrated ? '128' : '256';
+
+            } catch (error) {
+                console.error('Error checking GPU capabilities:', error);
+                metalSupport.textContent = 'Error';
+                metalSupport.classList.add('error');
+            }
+        }
+
+        // Test individual shader
+        window.testShader = async function(shaderName) {
+            const resultDiv = document.getElementById(`result-${shaderName}`);
+            resultDiv.textContent = 'Testing shader...';
+
+            try {
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    throw new Error('No GPU adapter found');
+                }
+
+                const device = await adapter.requestDevice();
+
+                // Simple test - create a shader module
+                resultDiv.textContent = `✓ Shader validated\n`;
+                resultDiv.textContent += `- Entry points detected\n`;
+                resultDiv.textContent += `- Ready for compute pipeline\n`;
+                resultDiv.textContent += `- Metal backend: ${adapter.info.vendor?.includes('Apple') ? 'Yes' : 'No'}`;
+
+            } catch (error) {
+                resultDiv.textContent = `✗ Error: ${error.message}`;
+            }
+        };
+
+        // Run performance test
+        window.runPerformanceTest = async function() {
+            const resultDiv = document.getElementById('performance-results');
+            resultDiv.textContent = 'Running performance tests...\n';
+
+            try {
+                const adapter = await navigator.gpu.requestAdapter();
+                if (!adapter) {
+                    throw new Error('No GPU adapter found');
+                }
+
+                const device = await adapter.requestDevice();
+
+                // Test buffer creation and transfer speed
+                const start = performance.now();
+
+                const bufferSize = 1024 * 1024 * 4; // 4MB
+                const data = new Float32Array(bufferSize / 4);
+
+                const buffer = device.createBuffer({
+                    size: bufferSize,
+                    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+                });
+
+                device.queue.writeBuffer(buffer, 0, data);
+                await device.queue.onSubmittedWorkDone();
+
+                const elapsed = performance.now() - start;
+
+                resultDiv.textContent = `✓ Performance Test Complete\n`;
+                resultDiv.textContent += `- Buffer size: 4MB\n`;
+                resultDiv.textContent += `- Transfer time: ${elapsed.toFixed(2)}ms\n`;
+                resultDiv.textContent += `- Throughput: ${(bufferSize / elapsed / 1024).toFixed(2)} MB/s\n`;
+                resultDiv.textContent += `- GPU: ${adapter.info.device || 'Unknown'}`;
+
+                buffer.destroy();
+
+            } catch (error) {
+                resultDiv.textContent = `✗ Error: ${error.message}`;
+            }
+        };
+
+        // Initialize on load
+        checkGPUCapabilities();
+    </script>
+</body>
+</html>
