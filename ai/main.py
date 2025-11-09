@@ -1,128 +1,370 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+#!/usr/bin/env python3
+
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from snac import SNAC
+import soundfile as sf
+import numpy as np
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-import os
 from pathlib import Path
+from uuid import uuid4
 import uvicorn
-# Load model directly
-from transformers import AutoTokenizer, AutoModelForCausalLM
+import io
+import base64
 
-tokenizer = AutoTokenizer.from_pretrained("maya-research/maya1")
-model = AutoModelForCausalLM.from_pretrained("maya-research/maya1")
+# FastAPI app
+app = FastAPI(title="Maya1 TTS API", description="Text-to-Speech API using Maya1 model")
 
-app = FastAPI(title="AI Audio Server", description="FastAPI server for serving audio files")
+# Global model variables
+model = None
+tokenizer = None
+snac_model = None
 
-# Create audio directory if it doesn't exist
-AUDIO_DIR = Path("audio")
-AUDIO_DIR.mkdir(exist_ok=True)
+def load_models():
+    """Load models globally."""
+    global model, tokenizer, snac_model
 
-# Mount static files for direct access
-app.mount("/audio", StaticFiles(directory=str(AUDIO_DIR)), name="audio")
+    if model is None:
+        print("Loading Maya1 model...")
+        model = AutoModelForCausalLM.from_pretrained(
+            "maya-research/maya1",
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+            trust_remote_code=True
+        )
+
+    if tokenizer is None:
+        print("Loading tokenizer...")
+        tokenizer = AutoTokenizer.from_pretrained(
+            "maya-research/maya1",
+            trust_remote_code=True
+        )
+
+    if snac_model is None:
+        print("Loading SNAC audio decoder...")
+        snac_model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
+        if torch.cuda.is_available():
+            snac_model = snac_model.to("cuda")
+
+    print("All models loaded successfully!")
+
+# FastAPI app
+app = FastAPI(title="Maya1 TTS API", description="Text-to-Speech API using Maya1 model")
 
 @app.get("/")
 async def root():
     """Root endpoint"""
-    return {"message": "AI Audio Server is running", "version": "1.0.0"}
+    return {
+        "message": "Maya1 TTS API is running",
+        "version": "1.0.0",
+        "model": "maya-research/maya1",
+        "audio_decoder": "hubertsiuzdak/snac_24khz"
+    }
 
-@app.get("/audio")
-async def get_audio(text: str):
+@app.post("/tts")
+async def text_to_speech(
+    text: str,
+    description: str = "Realistic male voice in the 30s age with american accent. Normal pitch, warm timbre, conversational pacing."
+):
     """
-    Serve generated tts audio file based on input text
+    Generate speech from text using Maya1 model.
+
+    Args:
+        text: The text to convert to speech
+        description: Voice description for the TTS model
     """
-    # Generate audio file from text
-    
-    file_path = AUDIO_DIR / filename
+    if not text or len(text.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Text cannot be empty")
 
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Audio file '{filename}' not found")
+    try:
+        # Create prompt with proper formatting
+        prompt = build_prompt(tokenizer, description, text)
 
-    # Check if it's actually an audio file
-    if file_path.suffix.lower() not in ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a']:
-        raise HTTPException(status_code=400, detail="File is not an audio file")
+        # Generate emotional speech
+        inputs = tokenizer(prompt, return_tensors="pt")
+        if torch.cuda.is_available():
+            inputs = {k: v.to("cuda") for k, v in inputs.items()}
 
-    return FileResponse(
-        path=file_path,
-        media_type=f"audio/{file_path.suffix[1:]}",
-        filename=filename
-    )
+        with torch.inference_mode():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=2048,  # Increase to let model finish naturally
+                min_new_tokens=28,  # At least 4 SNAC frames
+                temperature=0.4,
+                top_p=0.9,
+                repetition_penalty=1.1,  # Prevent loops
+                do_sample=True,
+                eos_token_id=CODE_END_TOKEN_ID,  # Stop at end of speech token
+                pad_token_id=tokenizer.pad_token_id,
+            )
 
-@app.post("/audio/upload")
-async def upload_audio(file: UploadFile = File(...)):
-    """
-    Upload an audio file
-    """
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
+        # Extract generated tokens (everything after the input prompt)
+        generated_ids = outputs[0, inputs['input_ids'].shape[1]:].tolist()
 
-    # Check file extension
-    allowed_extensions = ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a']
-    file_extension = Path(file.filename).suffix.lower()
+        # Extract SNAC audio tokens
+        snac_tokens = extract_snac_codes(generated_ids)
 
-    if file_extension not in allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"File type not allowed. Allowed types: {', '.join(allowed_extensions)}"
+        if len(snac_tokens) < 7:
+            raise HTTPException(status_code=500, detail="Not enough SNAC tokens generated")
+
+        # Unpack SNAC tokens to 3 hierarchical levels
+        levels = unpack_snac_from_7(snac_tokens)
+
+        # Convert to tensors
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        codes_tensor = [
+            torch.tensor(level, dtype=torch.long, device=device).unsqueeze(0)
+            for level in levels
+        ]
+
+        # Generate final audio with SNAC decoder
+        with torch.inference_mode():
+            z_q = snac_model.quantizer.from_codes(codes_tensor)
+            audio = snac_model.decoder(z_q)[0, 0].cpu().numpy()
+
+        # Trim warmup samples (first 2048 samples)
+        if len(audio) > 2048:
+            audio = audio[2048:]
+
+        # Save to WAV format in memory
+        wav_buffer = io.BytesIO()
+        sf.write(wav_buffer, audio, 24000, format='WAV')
+        wav_buffer.seek(0)
+
+        # Generate unique filename
+        filename = f"tts_{uuid4()}.wav"
+
+        return FileResponse(
+            wav_buffer,
+            media_type="audio/wav",
+            filename=filename,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
         )
 
-    # Save the file
-    file_path = AUDIO_DIR / file.filename
-    try:
-        with open(file_path, "wb") as buffer:
-            content = await file.read()
-            buffer.write(content)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"TTS generation failed: {str(e)}")
 
-    return {
-        "message": "Audio file uploaded successfully",
-        "filename": file.filename,
-        "size": len(content),
-        "url": f"/audio/{file.filename}"
-    }
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy", "models_loaded": all([model is not None, tokenizer is not None, snac_model is not None])}
 
-@app.get("/audio/list")
-async def list_audio():
-    """
-    List all available audio files
-    """
-    audio_files = []
-    for file_path in AUDIO_DIR.iterdir():
-        if file_path.is_file() and file_path.suffix.lower() in ['.mp3', '.wav', '.flac', '.aac', '.ogg', '.m4a']:
-            stat = file_path.stat()
-            audio_files.append({
-                "filename": file_path.name,
-                "size": stat.st_size,
-                "url": f"/audio/{file_path.name}",
-                "type": file_path.suffix[1:]
-            })
+# Constants
+CODE_START_TOKEN_ID = 128257
+CODE_END_TOKEN_ID = 128258
+CODE_TOKEN_OFFSET = 128266
+SNAC_MIN_ID = 128266
+SNAC_MAX_ID = 156937
+SNAC_TOKENS_PER_FRAME = 7
 
-    return {
-        "count": len(audio_files),
-        "files": audio_files
-    }
+SOH_ID = 128259
+EOH_ID = 128260
+SOA_ID = 128261
+BOS_ID = 128000
+TEXT_EOT_ID = 128009
 
-@app.delete("/audio/{filename}")
-async def delete_audio(filename: str):
-    """
-    Delete an audio file
-    """
-    file_path = AUDIO_DIR / filename
+def build_prompt(tokenizer, description: str, text: str) -> str:
+    """Build formatted prompt for Maya1."""
+    soh_token = tokenizer.decode([SOH_ID])
+    eoh_token = tokenizer.decode([EOH_ID])
+    soa_token = tokenizer.decode([SOA_ID])
+    sos_token = tokenizer.decode([CODE_START_TOKEN_ID])
+    eot_token = tokenizer.decode([TEXT_EOT_ID])
+    bos_token = tokenizer.bos_token
+    
+    formatted_text = f'<description="{description}"> {text}'
+    
+    prompt = (
+        soh_token + bos_token + formatted_text + eot_token +
+        eoh_token + soa_token + sos_token
+    )
+    
+    return prompt
 
-    if not file_path.exists():
-        raise HTTPException(status_code=404, detail=f"Audio file '{filename}' not found")
 
+def extract_snac_codes(token_ids: list) -> list:
+    """Extract SNAC codes from generated tokens."""
     try:
-        file_path.unlink()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete file: {str(e)}")
+        eos_idx = token_ids.index(CODE_END_TOKEN_ID)
+    except ValueError:
+        eos_idx = len(token_ids)
+    
+    snac_codes = [
+        token_id for token_id in token_ids[:eos_idx]
+        if SNAC_MIN_ID <= token_id <= SNAC_MAX_ID
+    ]
+    
+    return snac_codes
 
-    return {"message": f"Audio file '{filename}' deleted successfully"}
+
+def unpack_snac_from_7(snac_tokens: list) -> list:
+    """Unpack 7-token SNAC frames to 3 hierarchical levels."""
+    if snac_tokens and snac_tokens[-1] == CODE_END_TOKEN_ID:
+        snac_tokens = snac_tokens[:-1]
+    
+    frames = len(snac_tokens) // SNAC_TOKENS_PER_FRAME
+    snac_tokens = snac_tokens[:frames * SNAC_TOKENS_PER_FRAME]
+    
+    if frames == 0:
+        return [[], [], []]
+    
+    l1, l2, l3 = [], [], []
+    
+    for i in range(frames):
+        slots = snac_tokens[i*7:(i+1)*7]
+        l1.append((slots[0] - CODE_TOKEN_OFFSET) % 4096)
+        l2.extend([
+            (slots[1] - CODE_TOKEN_OFFSET) % 4096,
+            (slots[4] - CODE_TOKEN_OFFSET) % 4096,
+        ])
+        l3.extend([
+            (slots[2] - CODE_TOKEN_OFFSET) % 4096,
+            (slots[3] - CODE_TOKEN_OFFSET) % 4096,
+            (slots[5] - CODE_TOKEN_OFFSET) % 4096,
+            (slots[6] - CODE_TOKEN_OFFSET) % 4096,
+        ])
+    
+    return [l1, l2, l3]
+
+
+def main():
+    print("\n[1/3] Loading Maya1 model...")
+    model = AutoModelForCausalLM.from_pretrained(
+        "maya-research/maya1", 
+        torch_dtype=torch.bfloat16, 
+        device_map="auto",
+        trust_remote_code=True
+    )
+    tokenizer = AutoTokenizer.from_pretrained(
+        "maya-research/maya1",
+        trust_remote_code=True
+    )
+    print(f"Model loaded: {len(tokenizer)} tokens in vocabulary")
+    
+    # Load SNAC audio decoder (24kHz)
+    print("\n[2/3] Loading SNAC audio decoder...")
+    snac_model = SNAC.from_pretrained("hubertsiuzdak/snac_24khz").eval()
+    if torch.cuda.is_available():
+        snac_model = snac_model.to("cuda")
+    print("SNAC decoder loaded")
+    
+    # Design your voice with natural language
+    description = "Realistic male voice in the 30s age with american accent. Normal pitch, warm timbre, conversational pacing."
+    text = "Hello! This is Maya1 <laugh_harder> the best open source voice AI model with emotions."
+    
+    print("\n[3/3] Generating speech...")
+    print(f"Description: {description}")
+    print(f"Text: {text}")
+    
+    # Create prompt with proper formatting
+    prompt = build_prompt(tokenizer, description, text)
+    
+    # Debug: Show prompt details
+    print(f"\nPrompt preview (first 200 chars):")
+    print(f"   {repr(prompt[:200])}")
+    print(f"   Prompt length: {len(prompt)} chars")
+    
+    # Generate emotional speech
+    inputs = tokenizer(prompt, return_tensors="pt")
+    print(f"   Input token count: {inputs['input_ids'].shape[1]} tokens")
+    if torch.cuda.is_available():
+        inputs = {k: v.to("cuda") for k, v in inputs.items()}
+    
+    with torch.inference_mode():
+        outputs = model.generate(
+            **inputs, 
+            max_new_tokens=2048,  # Increase to let model finish naturally
+            min_new_tokens=28,  # At least 4 SNAC frames
+            temperature=0.4, 
+            top_p=0.9, 
+            repetition_penalty=1.1,  # Prevent loops
+            do_sample=True,
+            eos_token_id=CODE_END_TOKEN_ID,  # Stop at end of speech token
+            pad_token_id=tokenizer.pad_token_id,
+        )
+    
+    # Extract generated tokens (everything after the input prompt)
+    generated_ids = outputs[0, inputs['input_ids'].shape[1]:].tolist()
+    
+    print(f"Generated {len(generated_ids)} tokens")
+    
+    # Debug: Check what tokens we got
+    print(f"   First 20 tokens: {generated_ids[:20]}")
+    print(f"   Last 20 tokens: {generated_ids[-20:]}")
+    
+    # Check if EOS was generated
+    if CODE_END_TOKEN_ID in generated_ids:
+        eos_position = generated_ids.index(CODE_END_TOKEN_ID)
+        print(f" EOS token found at position {eos_position}/{len(generated_ids)}")
+    
+    # Extract SNAC audio tokens
+    snac_tokens = extract_snac_codes(generated_ids)
+    
+    print(f"Extracted {len(snac_tokens)} SNAC tokens")
+    
+    # Debug: Analyze token types
+    snac_count = sum(1 for t in generated_ids if SNAC_MIN_ID <= t <= SNAC_MAX_ID)
+    other_count = sum(1 for t in generated_ids if t < SNAC_MIN_ID or t > SNAC_MAX_ID)
+    print(f"   SNAC tokens in output: {snac_count}")
+    print(f"   Other tokens in output: {other_count}")
+    
+    # Check for SOS token
+    if CODE_START_TOKEN_ID in generated_ids:
+        sos_pos = generated_ids.index(CODE_START_TOKEN_ID)
+        print(f"   SOS token at position: {sos_pos}")
+    else:
+        print(f"   No SOS token found in generated output!")
+    
+    if len(snac_tokens) < 7:
+        print("Error: Not enough SNAC tokens generated")
+        return
+    
+    # Unpack SNAC tokens to 3 hierarchical levels
+    levels = unpack_snac_from_7(snac_tokens)
+    frames = len(levels[0])
+    
+    print(f"Unpacked to {frames} frames")
+    print(f"   L1: {len(levels[0])} codes")
+    print(f"   L2: {len(levels[1])} codes")
+    print(f"   L3: {len(levels[2])} codes")
+    
+    # Convert to tensors
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    codes_tensor = [
+        torch.tensor(level, dtype=torch.long, device=device).unsqueeze(0)
+        for level in levels
+    ]
+    
+    # Generate final audio with SNAC decoder
+    print("\n[4/4] Decoding to audio...")
+    with torch.inference_mode():
+        z_q = snac_model.quantizer.from_codes(codes_tensor)
+        audio = snac_model.decoder(z_q)[0, 0].cpu().numpy()
+    
+    # Trim warmup samples (first 2048 samples)
+    if len(audio) > 2048:
+        audio = audio[2048:]
+    
+    duration_sec = len(audio) / 24000
+    print(f"Audio generated: {len(audio)} samples ({duration_sec:.2f}s)")
+    
+    # Save your emotional voice output
+    output_file = "output.wav"
+    sf.write(output_file, audio, 24000)
+    print(f"\nVoice generated successfully!")
+
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "--standalone":
+        main()
+    else:
+        uvicorn.run(
+            "main:app",
+            host="0.0.0.0",
+            port=8000,
+            reload=True,
+            log_level="info"
+        )

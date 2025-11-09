@@ -10,4 +10,7 @@ dependencies = [
     "fastapi>=0.104.1",
     "uvicorn[standard]>=0.24.0",
     "transformers>=4.57.1",
+    "torch>=2.0.0",
+    "snac>=0.1.0",
+    "soundfile>=0.12.0",
 ]
