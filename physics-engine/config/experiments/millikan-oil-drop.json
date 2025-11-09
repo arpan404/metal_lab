@@ -1,0 +1,56 @@
+{
+    "id": "millikan_oil_drop",
+    "name": "Millikan Oil Drop",
+    "description": "Measure the elementary charge by balancing charged oil droplets",
+    "difficulty": "advanced",
+    "estimatedTime": 20,
+    "tags": ["electromagnetism", "charge", "electric-field", "quantization"],
+    "parameters": [
+      {
+        "name": "voltage",
+        "label": "Plate Voltage",
+        "min": 0,
+        "max": 10000,
+        "default": 5000,
+        "step": 100,
+        "unit": "V"
+      },
+      {
+        "name": "plateSeparation",
+        "label": "Plate Separation",
+        "min": 0.005,
+        "max": 0.05,
+        "default": 0.01,
+        "step": 0.001,
+        "unit": "m"
+      },
+      {
+        "name": "dropletRadius",
+        "label": "Droplet Radius",
+        "min": 0.5e-6,
+        "max": 5e-6,
+        "default": 1e-6,
+        "step": 0.1e-6,
+        "unit": "µm"
+      }
+    ],
+    "interestingValues": {
+      "voltage": [3000, 5000, 7000],
+      "notes": {
+        "5000": "Typical voltage for balancing",
+        "0.01": "Standard plate separation"
+      }
+    },
+    "physics": {
+      "concepts": ["electric force", "gravitational force", "charge quantization", "force balance"],
+      "equations": [
+        "qE = mg (at equilibrium)",
+        "E = V/d",
+        "q = ne (charge quantization)"
+      ],
+      "constants": {
+        "e": 1.602e-19,
+        "oil_density": 900
+      }
+    }
+  }

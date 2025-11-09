@@ -1,5 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { supabase } from './supabase'
+
+interface Checkpoint {
+  id: string
+  title: string
+  completed: boolean
+}
 
 export interface Lab {
   id: string
@@ -13,11 +20,7 @@ export interface Lab {
   completedAt?: Date
   startedAt?: Date
   points: number
-  checkpoints?: {
-    id: string
-    title: string
-    completed: boolean
-  }[]
+  checkpoints?: Checkpoint[]
 }
 
 export interface Badge {
@@ -53,390 +56,312 @@ export interface UserStats {
 }
 
 interface AppStore {
-  // Labs
+  // State
   labs: Lab[]
-  
-  // User Stats
   stats: UserStats
-  
-  // Badges
   badges: Badge[]
-  
-  // Recent Activity
   activities: Activity[]
+  isLoading: boolean
+  error: string | null
   
   // Actions
-  startLab: (labId: string) => void
-  updateLabProgress: (labId: string, progress: number) => void
-  completeLab: (labId: string) => void
-  unlockLab: (labId: string) => void
-  addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => void
-  earnBadge: (badgeId: string) => void
-  addPoints: (points: number) => void
-  updateStreak: () => void
+  initialize: () => Promise<void>
+  startLab: (labId: string) => Promise<void>
+  updateLabProgress: (labId: string, progress: number) => Promise<void>
+  completeLab: (labId: string) => Promise<void>
+  unlockLab: (labId: string) => Promise<void>
+  addActivity: (activity: Omit<Activity, 'id' | 'timestamp'>) => Promise<void>
+  earnBadge: (badgeId: string) => Promise<void>
+  addPoints: (points: number) => Promise<void>
+  updateStreak: () => Promise<void>
 }
 
-// Initial mock data
-const initialLabs: Lab[] = [
-  {
-    id: 'double-slit',
-    title: 'Double Slit Experiment',
-    description: 'Explore the wave-particle duality of light through the famous double-slit experiment.',
-    category: 'Quantum',
-    status: 'completed',
-    progress: 100,
-    difficulty: 'Beginner',
-    estimatedTime: 45,
-    completedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    startedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    points: 250,
-    checkpoints: [
-      { id: '1', title: 'Setup apparatus', completed: true },
-      { id: '2', title: 'Run simulation', completed: true },
-      { id: '3', title: 'Analyze patterns', completed: true },
-      { id: '4', title: 'Complete quiz', completed: true },
-    ]
+export const useAppStore = create<AppStore>((set, get) => ({
+  labs: [],
+  stats: {
+    totalLabs: 0,
+    completedLabs: 0,
+    inProgressLabs: 0,
+    totalPoints: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    hoursLearned: 0,
+    level: 1,
+    currentXP: 0,
+    xpToNextLevel: 1000,
   },
-  {
-    id: 'quantum-tunneling',
-    title: 'Quantum Tunneling',
-    description: 'Discover how particles can pass through energy barriers in quantum mechanics.',
-    category: 'Quantum',
-    status: 'in-progress',
-    progress: 65,
-    difficulty: 'Intermediate',
-    estimatedTime: 60,
-    startedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-    points: 300,
-    checkpoints: [
-      { id: '1', title: 'Understand concept', completed: true },
-      { id: '2', title: 'Setup simulation', completed: true },
-      { id: '3', title: 'Observe tunneling', completed: true },
-      { id: '4', title: 'Calculate probabilities', completed: false },
-      { id: '5', title: 'Complete assessment', completed: false },
-    ]
-  },
-  {
-    id: 'wave-particle',
-    title: 'Wave-Particle Duality',
-    description: 'Understand the dual nature of matter and light in quantum physics.',
-    category: 'Quantum',
-    status: 'completed',
-    progress: 100,
-    difficulty: 'Beginner',
-    estimatedTime: 50,
-    completedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    startedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-    points: 200,
-  },
-  {
-    id: 'photoelectric',
-    title: 'Photoelectric Effect',
-    description: 'Investigate how light interacts with matter through the photoelectric effect.',
-    category: 'Quantum',
-    status: 'in-progress',
-    progress: 30,
-    difficulty: 'Beginner',
-    estimatedTime: 40,
-    startedAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
-    points: 180,
-    checkpoints: [
-      { id: '1', title: 'Learn theory', completed: true },
-      { id: '2', title: 'Setup experiment', completed: true },
-      { id: '3', title: 'Measure electrons', completed: false },
-      { id: '4', title: 'Plot graphs', completed: false },
-    ]
-  },
-  {
-    id: 'schrodinger-cat',
-    title: "Schrödinger's Cat",
-    description: 'Explore quantum superposition through this famous thought experiment.',
-    category: 'Quantum',
-    status: 'locked',
-    progress: 0,
-    difficulty: 'Intermediate',
-    estimatedTime: 55,
-    points: 280,
-  },
-  {
-    id: 'quantum-entanglement',
-    title: 'Quantum Entanglement',
-    description: 'Study the mysterious correlation between quantum particles.',
-    category: 'Quantum',
-    status: 'locked',
-    progress: 0,
-    difficulty: 'Advanced',
-    estimatedTime: 75,
-    points: 400,
-  },
-  {
-    id: 'newtons-laws',
-    title: "Newton's Laws of Motion",
-    description: 'Master the fundamental principles of classical mechanics.',
-    category: 'Classical',
-    status: 'completed',
-    progress: 100,
-    difficulty: 'Beginner',
-    estimatedTime: 35,
-    completedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-    points: 150,
-  },
-  {
-    id: 'pendulum',
-    title: 'Simple Pendulum',
-    description: 'Analyze harmonic motion through pendulum experiments.',
-    category: 'Classical',
-    status: 'completed',
-    progress: 100,
-    difficulty: 'Beginner',
-    estimatedTime: 40,
-    completedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
-    points: 170,
-  },
-]
+  badges: [],
+  activities: [],
+  isLoading: true,
+  error: null,
 
-const initialBadges: Badge[] = [
-  {
-    id: 'quick-learner',
-    name: 'Quick Learner',
-    description: 'Completed first lab',
-    icon: 'Zap',
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    isEarned: true,
-    earnedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'quantum-explorer',
-    name: 'Quantum Explorer',
-    description: 'Completed 5 quantum labs',
-    icon: 'Flask',
-    color: 'bg-purple-100 text-purple-700 border-purple-200',
-    isEarned: true,
-    earnedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'perfect-score',
-    name: 'Perfect Score',
-    description: '100% on 3 labs',
-    icon: 'Trophy',
-    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    isEarned: true,
-    earnedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'week-warrior',
-    name: 'Week Warrior',
-    description: '7 day streak',
-    icon: 'Target',
-    color: 'bg-blue-100 text-blue-700 border-blue-200',
-    isEarned: true,
-    earnedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: 'speed-demon',
-    name: 'Speed Demon',
-    description: 'Complete a lab in under 30 minutes',
-    icon: 'Rocket',
-    color: 'bg-red-100 text-red-700 border-red-200',
-    isEarned: false,
-  },
-  {
-    id: 'physics-master',
-    name: 'Physics Master',
-    description: 'Complete all available labs',
-    icon: 'Crown',
-    color: 'bg-yellow-100 text-yellow-700 border-yellow-200',
-    isEarned: false,
-  },
-]
+  initialize: async () => {
+    try {
+      // Fetch labs with their checkpoints
+      const { data: labsData, error: labsError } = await supabase
+        .from('labs')
+        .select(`
+          *,
+          checkpoints:lab_checkpoints(*)
+        `)
+      if (labsError) throw labsError
 
-const initialActivities: Activity[] = [
-  {
-    id: '1',
-    type: 'completed',
-    title: 'Double Slit Experiment',
-    description: 'Completed lab with 100% score',
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-    points: 250,
-  },
-  {
-    id: '2',
-    type: 'badge',
-    title: 'Earned "Quantum Explorer" badge',
-    description: 'Completed 5 quantum physics labs',
-    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000),
-    points: 100,
-  },
-  {
-    id: '3',
-    type: 'started',
-    title: 'Started Quantum Tunneling',
-    description: 'Began new lab experiment',
-    timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
-  },
-  {
-    id: '4',
-    type: 'completed',
-    title: 'Wave-Particle Duality',
-    description: 'Successfully completed advanced concepts',
-    timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
-    points: 200,
-  },
-]
-
-export const useAppStore = create<AppStore>()(
-  persist(
-    (set, get) => ({
-      labs: initialLabs,
-      stats: {
-        totalLabs: initialLabs.length,
-        completedLabs: initialLabs.filter(l => l.status === 'completed').length,
-        inProgressLabs: initialLabs.filter(l => l.status === 'in-progress').length,
-        totalPoints: 2450,
-        currentStreak: 7,
-        longestStreak: 12,
-        hoursLearned: 48,
-        level: 8,
-        currentXP: 2450,
-        xpToNextLevel: 3000,
-      },
-      badges: initialBadges,
-      activities: initialActivities,
-
-      startLab: (labId) => {
-        set((state) => ({
-          labs: state.labs.map((lab) =>
-            lab.id === labId && lab.status === 'locked'
-              ? { ...lab, status: 'in-progress', startedAt: new Date() }
-              : lab
-          ),
-          stats: {
-            ...state.stats,
-            inProgressLabs: state.stats.inProgressLabs + 1,
-          },
+      // Transform labs data
+      const labs = labsData?.map(lab => ({
+        id: lab.id,
+        title: lab.title,
+        description: lab.description,
+        category: lab.category,
+        status: lab.status,
+        progress: lab.progress,
+        difficulty: lab.difficulty,
+        estimatedTime: lab.estimated_time,
+        completedAt: lab.completed_at ? new Date(lab.completed_at) : undefined,
+        startedAt: lab.started_at ? new Date(lab.started_at) : undefined,
+        points: lab.points,
+        checkpoints: lab.checkpoints?.map((cp: Checkpoint) => ({
+          id: cp.id,
+          title: cp.title,
+          completed: cp.completed
         }))
-        
-        const lab = get().labs.find(l => l.id === labId)
-        if (lab) {
-          get().addActivity({
-            type: 'started',
-            title: `Started ${lab.title}`,
-            description: 'Began new lab experiment',
-          })
-        }
-      },
+      })) || []
 
-      updateLabProgress: (labId, progress) => {
-        set((state) => ({
-          labs: state.labs.map((lab) =>
-            lab.id === labId ? { ...lab, progress } : lab
-          ),
-        }))
-      },
+      // Fetch user stats
+      const { data: statsData, error: statsError } = await supabase
+        .from('user_stats')
+        .select('*')
+        .single()
+      if (statsError) throw statsError
 
-      completeLab: (labId) => {
-        const lab = get().labs.find(l => l.id === labId)
-        if (!lab) return
+      // Transform stats data
+      const stats: UserStats = {
+        totalLabs: statsData.total_labs,
+        completedLabs: statsData.completed_labs,
+        inProgressLabs: statsData.in_progress_labs,
+        totalPoints: statsData.total_points,
+        currentStreak: statsData.current_streak,
+        longestStreak: statsData.longest_streak,
+        hoursLearned: statsData.hours_learned,
+        level: statsData.level,
+        currentXP: statsData.current_xp,
+        xpToNextLevel: statsData.xp_to_next_level
+      }
 
-        set((state) => ({
-          labs: state.labs.map((l) =>
-            l.id === labId
-              ? { ...l, status: 'completed', progress: 100, completedAt: new Date() }
-              : l
-          ),
-          stats: {
-            ...state.stats,
-            completedLabs: state.stats.completedLabs + 1,
-            inProgressLabs: Math.max(0, state.stats.inProgressLabs - 1),
-            totalPoints: state.stats.totalPoints + lab.points,
-            currentXP: state.stats.currentXP + lab.points,
-          },
-        }))
+      // Fetch badges
+      const { data: badgesData, error: badgesError } = await supabase
+        .from('badges')
+        .select('*')
+      if (badgesError) throw badgesError
 
-        get().addActivity({
-          type: 'completed',
-          title: lab.title,
-          description: 'Completed lab with excellent score',
-          points: lab.points,
-        })
+      // Transform badges data
+      const badges = badgesData?.map(badge => ({
+        id: badge.id,
+        name: badge.name,
+        description: badge.description,
+        icon: badge.icon,
+        color: badge.color,
+        earnedAt: badge.earned_at ? new Date(badge.earned_at) : undefined,
+        isEarned: badge.is_earned
+      })) || []
 
-        get().addPoints(lab.points)
-      },
+      // Fetch activities
+      const { data: activitiesData, error: activitiesError } = await supabase
+        .from('activities')
+        .select('*')
+        .order('timestamp', { ascending: false })
+      if (activitiesError) throw activitiesError
 
-      unlockLab: (labId) => {
-        set((state) => ({
-          labs: state.labs.map((lab) =>
-            lab.id === labId && lab.status === 'locked'
-              ? { ...lab, status: 'in-progress' }
-              : lab
-          ),
-        }))
-      },
+      // Transform activities data
+      const activities = activitiesData?.map(activity => ({
+        id: activity.id,
+        type: activity.type,
+        title: activity.title,
+        description: activity.description,
+        timestamp: new Date(activity.timestamp),
+        points: activity.points
+      })) || []
 
-      addActivity: (activity) => {
-        const newActivity: Activity = {
-          ...activity,
-          id: Math.random().toString(36).substr(2, 9),
-          timestamp: new Date(),
-        }
-        set((state) => ({
-          activities: [newActivity, ...state.activities].slice(0, 20), // Keep last 20
-        }))
-      },
-
-      earnBadge: (badgeId) => {
-        set((state) => ({
-          badges: state.badges.map((badge) =>
-            badge.id === badgeId
-              ? { ...badge, isEarned: true, earnedAt: new Date() }
-              : badge
-          ),
-        }))
-
-        const badge = get().badges.find(b => b.id === badgeId)
-        if (badge) {
-          get().addActivity({
-            type: 'badge',
-            title: `Earned "${badge.name}" badge`,
-            description: badge.description,
-            points: 100,
-          })
-          get().addPoints(100)
-        }
-      },
-
-      addPoints: (points) => {
-        set((state) => {
-          const newXP = state.stats.currentXP + points
-          const newLevel = Math.floor(newXP / 300) + 1 // Level up every 300 XP
-          
-          return {
-            stats: {
-              ...state.stats,
-              totalPoints: state.stats.totalPoints + points,
-              currentXP: newXP,
-              level: newLevel,
-              xpToNextLevel: (newLevel * 300),
-            },
-          }
-        })
-      },
-
-      updateStreak: () => {
-        set((state) => {
-          const newStreak = state.stats.currentStreak + 1
-          return {
-            stats: {
-              ...state.stats,
-              currentStreak: newStreak,
-              longestStreak: Math.max(state.stats.longestStreak, newStreak),
-            },
-          }
-        })
-      },
-    }),
-    {
-      name: 'metal-lab-storage',
+      set({
+        labs,
+        stats,
+        badges,
+        activities,
+        isLoading: false,
+        error: null
+      })
+    } catch (error) {
+      set({ error: (error as Error).message, isLoading: false })
     }
-  )
-)
+  },
+
+  startLab: async (labId) => {
+    const { error } = await supabase
+      .from('labs')
+      .update({
+        status: 'in-progress',
+        started_at: new Date().toISOString(),
+        progress: 0
+      })
+      .eq('id', labId)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    const { error: statsError } = await supabase
+      .from('user_stats')
+      .update({
+        in_progress_labs: get().stats.inProgressLabs + 1
+      })
+      .eq('id', 1)
+
+    if (statsError) {
+      set({ error: statsError.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  updateLabProgress: async (labId, progress) => {
+    const { error } = await supabase
+      .from('labs')
+      .update({ progress })
+      .eq('id', labId)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  completeLab: async (labId) => {
+    const { error } = await supabase
+      .from('labs')
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+        progress: 100
+      })
+      .eq('id', labId)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    const { error: statsError } = await supabase
+      .from('user_stats')
+      .update({
+        completed_labs: get().stats.completedLabs + 1,
+        in_progress_labs: get().stats.inProgressLabs - 1
+      })
+      .eq('id', 1)
+
+    if (statsError) {
+      set({ error: statsError.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  unlockLab: async (labId) => {
+    const { error } = await supabase
+      .from('labs')
+      .update({ status: 'locked' })
+      .eq('id', labId)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  addActivity: async (activity) => {
+    const { error } = await supabase
+      .from('activities')
+      .insert([{
+        ...activity,
+        timestamp: new Date().toISOString()
+      }])
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  earnBadge: async (badgeId) => {
+    const { error } = await supabase
+      .from('badges')
+      .update({
+        is_earned: true,
+        earned_at: new Date().toISOString()
+      })
+      .eq('id', badgeId)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  addPoints: async (points) => {
+    const stats = get().stats
+    const newXP = stats.currentXP + points
+    const levelUp = newXP >= stats.xpToNextLevel
+
+    const { error } = await supabase
+      .from('user_stats')
+      .update({
+        total_points: stats.totalPoints + points,
+        current_xp: levelUp ? newXP - stats.xpToNextLevel : newXP,
+        level: levelUp ? stats.level + 1 : stats.level,
+        xp_to_next_level: levelUp ? stats.xpToNextLevel * 1.5 : stats.xpToNextLevel
+      })
+      .eq('id', 1)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  },
+
+  updateStreak: async () => {
+    const stats = get().stats
+    const today = new Date()
+    const lastActivity = get().activities[0]
+    const streakBroken = lastActivity && 
+      (today.getTime() - new Date(lastActivity.timestamp).getTime()) > 24 * 60 * 60 * 1000
+
+    const { error } = await supabase
+      .from('user_stats')
+      .update({
+        current_streak: streakBroken ? 1 : stats.currentStreak + 1,
+        longest_streak: streakBroken ? 
+          stats.longestStreak : 
+          Math.max(stats.longestStreak, stats.currentStreak + 1)
+      })
+      .eq('id', 1)
+
+    if (error) {
+      set({ error: error.message })
+      return
+    }
+
+    await get().initialize()
+  }
+}))
+

@@ -1,0 +1,83 @@
+{
+    "id": "banked_track_challenge",
+    "name": "Banked Track Challenge",
+    "description": "Race around the track at optimal speeds",
+    "difficulty": "medium",
+    "timeLimit": 120,
+    "objectives": [
+      {
+        "id": "complete-lap",
+        "description": "Complete one lap",
+        "targetValue": 1,
+        "points": 100,
+        "required": true
+      },
+      {
+        "id": "optimal-speed",
+        "description": "Maintain optimal speed (±5 m/s)",
+        "targetValue": 50,
+        "tolerance": 5,
+        "points": 200,
+        "required": false
+      },
+      {
+        "id": "three-laps",
+        "description": "Complete three laps",
+        "targetValue": 3,
+        "points": 300,
+        "required": false
+      },
+      {
+        "id": "minimal-friction",
+        "description": "Complete lap with minimal friction use",
+        "targetValue": 100,
+        "points": 250,
+        "required": false
+      }
+    ],
+    "scoring": {
+      "basePoints": 100,
+      "timeBonus": true,
+      "accuracyBonus": true,
+      "penalties": [
+        {
+          "reason": "track_exit",
+          "points": -50
+        },
+        {
+          "reason": "excessive_speed",
+          "points": -25
+        }
+      ]
+    },
+    "levels": [
+      {
+        "level": 1,
+        "name": "Beginner Track",
+        "bankAngle": 15,
+        "trackRadius": 300,
+        "targetSpeed": 35
+      },
+      {
+        "level": 2,
+        "name": "Intermediate Track",
+        "bankAngle": 25,
+        "trackRadius": 250,
+        "targetSpeed": 45
+      },
+      {
+        "level": 3,
+        "name": "Advanced Track",
+        "bankAngle": 33,
+        "trackRadius": 200,
+        "targetSpeed": 52
+      },
+      {
+        "level": 4,
+        "name": "Expert Track",
+        "bankAngle": 40,
+        "trackRadius": 150,
+        "targetSpeed": 58
+      }
+    ]
+  }

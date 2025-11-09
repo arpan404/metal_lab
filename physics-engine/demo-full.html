@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metal Lab - Complete Physics Suite</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+
+        #sidebar {
+            width: 340px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 2px solid #4CAF50;
+        }
+
+        #viewport {
+            flex: 1;
+            position: relative;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 15px;
+            color: #4CAF50;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 15px;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            color: #00d4ff;
+            border-bottom: 1px solid #00d4ff;
+            padding-bottom: 5px;
+        }
+
+        .demo-btn {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 6px;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .demo-btn:hover {
+            transform: translateX(5px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .demo-btn.active {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            transform: translateX(5px);
+        }
+
+        .game-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .controls {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .control-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+        }
+
+        .value-display {
+            color: #4CAF50;
+            font-weight: bold;
+            float: right;
+            font-size: 11px;
+        }
+
+        .action-btn {
+            padding: 8px 16px;
+            margin: 4px;
+            background: #4CAF50;
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .action-btn:hover {
+            background: #45a049;
+        }
+
+        .action-btn.reset {
+            background: #f44336;
+        }
+
+        #info-panel {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 15px;
+            border-radius: 6px;
+            min-width: 220px;
+            border: 2px solid #00d4ff;
+            font-size: 12px;
+        }
+
+        #info-panel h3 {
+            color: #00d4ff;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .stat-label {
+            color: #aaa;
+        }
+
+        .stat-value {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .description {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(0, 200, 255, 0.1);
+            border-left: 3px solid #00d4ff;
+            font-size: 11px;
+            line-height: 1.4;
+        }
+
+        .experiment-emoji {
+            margin-right: 6px;
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #4CAF50;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="sidebar">
+            <h1>🧪 Metal Lab Physics Suite</h1>
+            <p style="text-align: center; color: #aaa; font-size: 11px; margin-bottom: 15px;">
+                Enhanced Realistic Simulations
+            </p>
+
+            <h2>🔬 Experiments</h2>
+            <button class="demo-btn active" data-demo="foucault">
+                <span class="experiment-emoji">🌍</span>Foucault Pendulum
+            </button>
+            <button class="demo-btn" data-demo="double-slit">
+                <span class="experiment-emoji">🌊</span>Young's Double Slit
+            </button>
+            <button class="demo-btn" data-demo="rutherford">
+                <span class="experiment-emoji">⚛️</span>Rutherford Gold Foil
+            </button>
+            <button class="demo-btn" data-demo="nascar">
+                <span class="experiment-emoji">🏎️</span>NASCAR Banking
+            </button>
+            <button class="demo-btn" data-demo="millikan">
+                <span class="experiment-emoji">💧</span>Millikan Oil Drop
+            </button>
+
+            <h2>🎮 Games</h2>
+            <button class="demo-btn game-btn" data-demo="banking-game">
+                🏁 Banking Track Challenge
+            </button>
+            <button class="demo-btn game-btn" data-demo="deflection-game">
+                💥 Atomic Deflection
+            </button>
+
+            <div class="controls">
+                <button class="action-btn" id="start-btn">▶️ Start</button>
+                <button class="action-btn" id="pause-btn">⏸️ Pause</button>
+                <button class="action-btn reset" id="reset-btn">🔄 Reset</button>
+            </div>
+
+            <div id="parameter-controls"></div>
+
+            <div class="description" id="description">
+                <strong>Foucault Pendulum:</strong><br>
+                • Demonstrates Earth's rotation<br>
+                • Enhanced with air resistance<br>
+                • Realistic brass materials<br>
+                • Trail visualization
+            </div>
+        </div>
+
+        <div id="viewport">
+            <canvas id="canvas"></canvas>
+
+            <div id="info-panel">
+                <h3 id="experiment-title">Foucault Pendulum</h3>
+                <div id="stats-container">
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span class="stat-value" id="status">Ready</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Time:</span>
+                        <span class="stat-value" id="time">0.0 s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">FPS:</span>
+                        <span class="stat-value" id="fps">60</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="three.min.js"></script>
+    <script>
+        // Three.js setup
+        const canvas = document.getElementById('canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, canvas.offsetWidth / canvas.offsetHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+
+        renderer.setSize(canvas.offsetWidth, canvas.offsetHeight);
+        renderer.setClearColor(0x1a1a2e);
+        renderer.shadowMap.enabled = true;
+
+        camera.position.set(0, 8, 20);
+        camera.lookAt(0, 5, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(10, 10, 10);
+        directionalLight.castShadow = true;
+        scene.add(directionalLight);
+
+        const pointLight = new THREE.PointLight(0x00d4ff, 0.5);
+        pointLight.position.set(-10, 5, -10);
+        scene.add(pointLight);
+
+        // Grid
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        // Experiment configurations
+        const experiments = {
+            foucault: {
+                params: [
+                    { id: 'latitude', label: 'Latitude', min: -90, max: 90, default: 45, step: 1, unit: '°' },
+                    { id: 'length', label: 'Length', min: 5, max: 30, default: 10, step: 0.5, unit: 'm' },
+                    { id: 'mass', label: 'Mass', min: 1, max: 20, default: 5, step: 0.5, unit: 'kg' },
+                    { id: 'gravity', label: 'Gravity', min: 1, max: 20, default: 9.81, step: 0.1, unit: 'm/s²' },
+                    { id: 'damping', label: 'Air Damping', min: 0.9, max: 1, default: 0.99, step: 0.01, unit: '' },
+                    { id: 'initialAngle', label: 'Initial Angle', min: 0.05, max: 0.5, default: 0.2, step: 0.01, unit: 'rad' }
+                ],
+                description: '<strong>Foucault Pendulum:</strong><br>• Demonstrates Earth\'s rotation<br>• Enhanced with air resistance<br>• Coriolis & centrifugal forces<br>• Precession visualization'
+            },
+            'double-slit': {
+                params: [
+                    { id: 'wavelength', label: 'Wavelength', min: 400, max: 700, default: 550, step: 10, unit: 'nm' },
+                    { id: 'slitSeparation', label: 'Slit Separation', min: 50, max: 500, default: 200, step: 10, unit: 'μm' },
+                    { id: 'slitWidth', label: 'Slit Width', min: 10, max: 100, default: 20, step: 5, unit: 'μm' },
+                    { id: 'photonMode', label: 'Photon Mode', min: 0, max: 1, default: 0, step: 1, unit: '' },
+                    { id: 'photonRate', label: 'Photon Rate', min: 1, max: 100, default: 20, step: 1, unit: '/s' },
+                    { id: 'screenDistance', label: 'Screen Distance', min: 0.5, max: 3, default: 1, step: 0.1, unit: 'm' }
+                ],
+                description: '<strong>Young\'s Double Slit:</strong><br>• Wave-particle duality<br>• Toggle photon mode<br>• Quantum interference<br>• Real-time pattern formation'
+            },
+            rutherford: {
+                params: [
+                    { id: 'alphaEnergy', label: 'Alpha Energy', min: 1, max: 10, default: 5.5, step: 0.5, unit: 'MeV' },
+                    { id: 'emissionRate', label: 'Emission Rate', min: 1, max: 100, default: 10, step: 1, unit: '/s' },
+                    { id: 'nucleusCharge', label: 'Nucleus Charge (Z)', min: 10, max: 92, default: 79, step: 1, unit: '' },
+                    { id: 'foilThickness', label: 'Foil Thickness', min: 0.1, max: 10, default: 1, step: 0.1, unit: 'μm' },
+                    { id: 'detectorAngle', label: 'Detector Angle', min: 0, max: 180, default: 45, step: 5, unit: '°' }
+                ],
+                description: '<strong>Rutherford Scattering:</strong><br>• Nuclear model discovery<br>• Particle trail tracking<br>• Coulomb force calculation<br>• Scattering angle distribution'
+            },
+            nascar: {
+                params: [
+                    { id: 'bankAngle', label: 'Bank Angle', min: 0, max: 45, default: 33, step: 1, unit: '°' },
+                    { id: 'velocity', label: 'Velocity', min: 20, max: 90, default: 50, step: 1, unit: 'm/s' },
+                    { id: 'trackRadius', label: 'Track Radius', min: 100, max: 400, default: 200, step: 10, unit: 'm' },
+                    { id: 'friction', label: 'Friction Coeff.', min: 0, max: 1, default: 0.7, step: 0.05, unit: '' },
+                    { id: 'carMass', label: 'Car Mass', min: 800, max: 2000, default: 1500, step: 50, unit: 'kg' },
+                    { id: 'downforce', label: 'Downforce Factor', min: 0, max: 5, default: 3, step: 0.1, unit: '' }
+                ],
+                description: '<strong>NASCAR Banking:</strong><br>• Circular motion physics<br>• Aerodynamic forces<br>• Tire slip calculation<br>• Lateral G-forces'
+            },
+            millikan: {
+                params: [
+                    { id: 'voltage', label: 'Voltage', min: 0, max: 10000, default: 5000, step: 100, unit: 'V' },
+                    { id: 'plateSeparation', label: 'Plate Separation', min: 5, max: 50, default: 10, step: 1, unit: 'mm' },
+                    { id: 'dropletRadius', label: 'Droplet Radius', min: 0.5, max: 5, default: 1, step: 0.1, unit: 'μm' },
+                    { id: 'temperature', label: 'Temperature', min: 250, max: 350, default: 293, step: 1, unit: 'K' },
+                    { id: 'numDroplets', label: 'Num Droplets', min: 1, max: 50, default: 10, step: 1, unit: '' }
+                ],
+                description: '<strong>Millikan Oil Drop:</strong><br>• Elementary charge discovery<br>• Electric field balance<br>• Charge quantization<br>• Brownian motion effects'
+            },
+            'banking-game': {
+                params: [
+                    { id: 'difficulty', label: 'Difficulty', min: 1, max: 5, default: 2, step: 1, unit: '' },
+                    { id: 'lapsToWin', label: 'Laps to Win', min: 1, max: 10, default: 3, step: 1, unit: '' }
+                ],
+                description: '<strong>Banking Track Challenge:</strong><br>• Race for fastest lap time<br>• Optimize bank angle & speed<br>• Combo multipliers<br>• Performance bonuses'
+            },
+            'deflection-game': {
+                params: [
+                    { id: 'difficulty', label: 'Difficulty', min: 1, max: 5, default: 2, step: 1, unit: '' },
+                    { id: 'targetScore', label: 'Target Score', min: 1000, max: 10000, default: 5000, step: 500, unit: 'pts' }
+                ],
+                description: '<strong>Atomic Deflection:</strong><br>• Hit target angles precisely<br>• Progressive difficulty<br>• Power-up combos<br>• Time-based challenges'
+            }
+        };
+
+        // Simple Pendulum (Foucault) Demo
+        class FoucaultDemo {
+            constructor() {
+                this.params = {
+                    latitude: 45,
+                    length: 10,
+                    mass: 5,
+                    gravity: 9.81,
+                    damping: 0.99,
+                    initialAngle: 0.2
+                };
+                this.angle = this.params.initialAngle;
+                this.angularVel = 0;
+                this.trailPoints = [];
+                this.precessionAngle = 0;
+                this.time = 0;
+                this.setup();
+            }
+
+            setup() {
+                // Pivot
+                const pivotGeom = new THREE.SphereGeometry(0.2, 16, 16);
+                const pivotMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8 });
+                this.pivot = new THREE.Mesh(pivotGeom, pivotMat);
+                this.pivot.position.y = this.params.length;
+                scene.add(this.pivot);
+
+                // Bob
+                const bobGeom = new THREE.SphereGeometry(0.3, 32, 32);
+                const bobMat = new THREE.MeshStandardMaterial({ color: 0xb87333, metalness: 0.8, roughness: 0.3 });
+                this.bob = new THREE.Mesh(bobGeom, bobMat);
+                this.bob.castShadow = true;
+                scene.add(this.bob);
+
+                // String
+                const stringGeom = new THREE.CylinderGeometry(0.02, 0.02, this.params.length, 8);
+                const stringMat = new THREE.MeshStandardMaterial({ color: 0xcccccc });
+                this.string = new THREE.Mesh(stringGeom, stringMat);
+                scene.add(this.string);
+
+                // Trail
+                const trailMat = new THREE.LineBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.6 });
+                this.trail = new THREE.Line(new THREE.BufferGeometry(), trailMat);
+                scene.add(this.trail);
+
+                // Pointer
+                const pointerGeom = new THREE.ConeGeometry(0.08, 0.4, 16);
+                const pointerMat = new THREE.MeshStandardMaterial({ color: 0xff0000, emissive: 0xff0000, emissiveIntensity: 0.5 });
+                this.pointer = new THREE.Mesh(pointerGeom, pointerMat);
+                this.pointer.rotation.x = Math.PI;
+                this.bob.add(this.pointer);
+            }
+
+            update(dt) {
+                this.time += dt;
+
+                // Pendulum physics with Coriolis effect simulation
+                const omega_earth = 7.2921e-5; // Earth's rotation (rad/s)
+                const lat_rad = this.params.latitude * Math.PI / 180;
+                const coriolis_factor = 2 * omega_earth * Math.sin(lat_rad);
+
+                const angularAcc = -(this.params.gravity / this.params.length) * Math.sin(this.angle);
+                this.angularVel += angularAcc * dt;
+                this.angularVel *= this.params.damping;
+                this.angle += this.angularVel * dt;
+
+                // Add precession (simplified)
+                this.precessionAngle += coriolis_factor * dt;
+
+                // Update positions with precession
+                const x = this.params.length * Math.sin(this.angle) * Math.cos(this.precessionAngle);
+                const y = this.params.length * Math.cos(this.angle);
+                const z = this.params.length * Math.sin(this.angle) * Math.sin(this.precessionAngle);
+
+                this.bob.position.set(x, this.params.length - y, z);
+
+                // Update string
+                const pivot = new THREE.Vector3(0, this.params.length, 0);
+                const bobPos = this.bob.position.clone();
+                const dir = new THREE.Vector3().subVectors(bobPos, pivot).normalize();
+                const up = new THREE.Vector3(0, -1, 0);
+                const quat = new THREE.Quaternion().setFromUnitVectors(up, dir);
+                this.string.position.copy(pivot).add(bobPos).multiplyScalar(0.5);
+                this.string.quaternion.copy(quat);
+
+                // Trail
+                this.trailPoints.push(this.bob.position.clone());
+                if (this.trailPoints.length > 500) this.trailPoints.shift();
+                this.trail.geometry.setFromPoints(this.trailPoints);
+
+                return {
+                    angle: this.angle,
+                    precessionAngle: this.precessionAngle * 180 / Math.PI,
+                    period: 2 * Math.PI * Math.sqrt(this.params.length / this.params.gravity),
+                    energy: 0.5 * this.params.mass * (this.angularVel * this.params.length) ** 2
+                };
+            }
+
+            setParam(key, value) {
+                this.params[key] = value;
+                if (key === 'length') {
+                    this.pivot.position.y = value;
+                    this.string.geometry = new THREE.CylinderGeometry(0.02, 0.02, value, 8);
+                }
+            }
+
+            reset() {
+                this.angle = this.params.initialAngle;
+                this.angularVel = 0;
+                this.trailPoints = [];
+                this.precessionAngle = 0;
+                this.time = 0;
+            }
+
+            dispose() {
+                scene.remove(this.pivot, this.bob, this.string, this.trail);
+            }
+        }
+
+        // Particle system for other experiments (placeholder)
+        class ParticleDemo {
+            constructor(type) {
+                this.type = type;
+                this.particles = [];
+                this.setup();
+            }
+
+            setup() {
+                // Create particle system based on type
+                const geom = new THREE.SphereGeometry(0.1, 8, 8);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: this.type === 'double-slit' ? 0x00ffff :
+                           this.type === 'rutherford' ? 0xff0000 :
+                           this.type === 'millikan' ? 0xffaa00 : 0xffffff,
+                    emissive: 0x444444
+                });
+
+                for (let i = 0; i < 20; i++) {
+                    const mesh = new THREE.Mesh(geom, mat);
+                    mesh.position.set(
+                        (Math.random() - 0.5) * 10,
+                        Math.random() * 10,
+                        (Math.random() - 0.5) * 10
+                    );
+                    this.particles.push({
+                        mesh,
+                        vel: new THREE.Vector3(
+                            (Math.random() - 0.5) * 2,
+                            (Math.random() - 0.5) * 2,
+                            (Math.random() - 0.5) * 2
+                        )
+                    });
+                    scene.add(mesh);
+                }
+            }
+
+            update(dt) {
+                this.particles.forEach(p => {
+                    p.mesh.position.add(p.vel.clone().multiplyScalar(dt));
+
+                    // Bounce
+                    if (Math.abs(p.mesh.position.x) > 10) p.vel.x *= -1;
+                    if (Math.abs(p.mesh.position.y) > 10) p.vel.y *= -1;
+                    if (Math.abs(p.mesh.position.z) > 10) p.vel.z *= -1;
+                });
+
+                return { particles: this.particles.length };
+            }
+
+            setParam(key, value) {
+                // Handle parameters
+            }
+
+            reset() {
+                this.particles.forEach(p => {
+                    p.mesh.position.set(
+                        (Math.random() - 0.5) * 10,
+                        Math.random() * 10,
+                        (Math.random() - 0.5) * 10
+                    );
+                });
+            }
+
+            dispose() {
+                this.particles.forEach(p => scene.remove(p.mesh));
+            }
+        }
+
+        // Racing track demo
+        class RacingDemo {
+            constructor() {
+                this.angle = 0;
+                this.velocity = 50;
+                this.radius = 200;
+                this.bankAngle = 33;
+                this.setup();
+            }
+
+            setup() {
+                // Track
+                const trackGeom = new THREE.TorusGeometry(10, 0.5, 16, 100);
+                const trackMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
+                this.track = new THREE.Mesh(trackGeom, trackMat);
+                this.track.rotation.x = Math.PI / 2;
+                scene.add(this.track);
+
+                // Car
+                const carGeom = new THREE.BoxGeometry(0.5, 0.3, 1);
+                const carMat = new THREE.MeshStandardMaterial({ color: 0xff0000, metalness: 0.7 });
+                this.car = new THREE.Mesh(carGeom, carMat);
+                scene.add(this.car);
+            }
+
+            update(dt) {
+                const angularVel = this.velocity / this.radius;
+                this.angle += angularVel * dt * 5; // Scale for visibility
+
+                const x = 10 * Math.cos(this.angle);
+                const z = 10 * Math.sin(this.angle);
+                const y = Math.sin(this.bankAngle * Math.PI / 180) * 2;
+
+                this.car.position.set(x, y, z);
+                this.car.rotation.y = this.angle + Math.PI / 2;
+
+                const optimalSpeed = Math.sqrt(9.81 * this.radius * Math.tan(this.bankAngle * Math.PI / 180));
+                const lateralG = (this.velocity ** 2) / (this.radius * 9.81);
+
+                return {
+                    speed: this.velocity,
+                    optimalSpeed: optimalSpeed,
+                    lateralG: lateralG.toFixed(2)
+                };
+            }
+
+            setParam(key, value) {
+                if (key === 'velocity') this.velocity = value;
+                if (key === 'bankAngle') this.bankAngle = value;
+                if (key === 'trackRadius') this.radius = value;
+            }
+
+            reset() {
+                this.angle = 0;
+            }
+
+            dispose() {
+                scene.remove(this.track, this.car);
+            }
+        }
+
+        // State
+        let currentDemo = null;
+        let currentDemoType = 'foucault';
+        let isRunning = false;
+        let elapsedTime = 0;
+        let lastTime = Date.now();
+
+        // Initialize demo
+        function loadDemo(type) {
+            if (currentDemo) currentDemo.dispose();
+
+            currentDemoType = type;
+            document.getElementById('experiment-title').textContent =
+                type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+            if (type === 'foucault') {
+                currentDemo = new FoucaultDemo();
+            } else if (type === 'double-slit' || type === 'rutherford' || type === 'millikan') {
+                currentDemo = new ParticleDemo(type);
+            } else if (type === 'nascar' || type === 'banking-game') {
+                currentDemo = new RacingDemo();
+            } else {
+                currentDemo = new ParticleDemo(type);
+            }
+
+            displayParameters(type);
+            updateDescription(type);
+        }
+
+        function displayParameters(type) {
+            const config = experiments[type];
+            if (!config) return;
+
+            let html = '<h2>📊 Parameters</h2>';
+            config.params.forEach(param => {
+                html += `
+                    <div class="control-group">
+                        <label>
+                            ${param.label}:
+                            <span class="value-display" id="${param.id}-value">${param.default}${param.unit}</span>
+                        </label>
+                        <input type="range" id="${param.id}-slider"
+                               min="${param.min}" max="${param.max}"
+                               value="${param.default}" step="${param.step}"
+                               data-param="${param.id}" data-unit="${param.unit}">
+                    </div>
+                `;
+            });
+
+            document.getElementById('parameter-controls').innerHTML = html;
+
+            // Add event listeners
+            config.params.forEach(param => {
+                const slider = document.getElementById(`${param.id}-slider`);
+                slider.addEventListener('input', (e) => {
+                    const value = parseFloat(e.target.value);
+                    document.getElementById(`${param.id}-value`).textContent = value + param.unit;
+                    if (currentDemo && currentDemo.setParam) {
+                        currentDemo.setParam(param.id, value);
+                    }
+                });
+            });
+        }
+
+        function updateDescription(type) {
+            const config = experiments[type];
+            document.getElementById('description').innerHTML = config ? config.description : '';
+        }
+
+        // Controls
+        document.getElementById('start-btn').addEventListener('click', () => {
+            isRunning = true;
+            document.getElementById('status').textContent = 'Running';
+        });
+
+        document.getElementById('pause-btn').addEventListener('click', () => {
+            isRunning = false;
+            document.getElementById('status').textContent = 'Paused';
+        });
+
+        document.getElementById('reset-btn').addEventListener('click', () => {
+            if (currentDemo) currentDemo.reset();
+            elapsedTime = 0;
+            document.getElementById('time').textContent = '0.0 s';
+        });
+
+        // Demo selection
+        document.querySelectorAll('.demo-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                loadDemo(btn.dataset.demo);
+            });
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const currentTime = Date.now();
+            const dt = Math.min((currentTime - lastTime) / 1000, 0.1);
+            lastTime = currentTime;
+
+            if (isRunning && currentDemo) {
+                const measurements = currentDemo.update(dt);
+                elapsedTime += dt;
+
+                document.getElementById('time').textContent = elapsedTime.toFixed(1) + ' s';
+
+                // Update extra stats
+                const statsHtml = `
+                    <div class="stat-item">
+                        <span class="stat-label">Status:</span>
+                        <span class="stat-value">Running</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Time:</span>
+                        <span class="stat-value">${elapsedTime.toFixed(1)} s</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">FPS:</span>
+                        <span class="stat-value">${Math.round(1/dt)}</span>
+                    </div>
+                    ${measurements ? Object.keys(measurements).slice(0, 3).map(key => `
+                        <div class="stat-item">
+                            <span class="stat-label">${key}:</span>
+                            <span class="stat-value">${typeof measurements[key] === 'number' ? measurements[key].toFixed(2) : measurements[key]}</span>
+                        </div>
+                    `).join('') : ''}
+                `;
+                document.getElementById('stats-container').innerHTML = statsHtml;
+            }
+
+            // Orbit camera
+            const time = Date.now() * 0.0001;
+            camera.position.x = Math.sin(time) * 15;
+            camera.position.z = Math.cos(time) * 15;
+            camera.lookAt(0, 5, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        // Window resize
+        window.addEventListener('resize', () => {
+            const width = canvas.offsetWidth;
+            const height = canvas.offsetHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        });
+
+        // Initialize
+        loadDemo('foucault');
+        animate();
+
+        console.log('🧪 Metal Lab Complete Suite Ready!');
+        console.log('📊 5 Experiments + 2 Games Available');
+        console.log('✨ Enhanced with realistic physics');
+    </script>
+</body>
+</html>

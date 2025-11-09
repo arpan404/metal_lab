@@ -1,0 +1,30 @@
+{
+    "name": "physics-engine",
+    "version": "1.0.0",
+    "description": "Self-contained physics simulation engine with LLM integration",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "watch": "tsc --watch",
+        "test": "jest",
+        "lint": "eslint . --ext .ts"
+    },
+    "dependencies": {
+        "cannon-es": "^0.20.0",
+        "three": "^0.160.0"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "@types/node": "^24.10.0",
+        "@types/three": "^0.160.0",
+        "@typescript-eslint/eslint-plugin": "^6.19.0",
+        "@typescript-eslint/parser": "^6.19.0",
+        "eslint": "^8.57.1",
+        "jest": "^29.7.0",
+        "jest-environment-jsdom": "^30.2.0",
+        "prettier": "^3.6.2",
+        "ts-jest": "^29.4.5",
+        "typescript": "^5.9.3"
+    }
+}
