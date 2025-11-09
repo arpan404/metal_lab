@@ -11,10 +11,8 @@ import {
   TrendingUp, 
   Clock, 
   Award, 
-  BookOpen, 
   Target, 
   Sparkles, 
-  Zap, 
   Flame,
   Activity,
   ArrowUpRight,
@@ -32,11 +30,9 @@ import {
 import { 
   IconFlask, 
   IconAtom, 
-  IconChartBar, 
   IconTrophy,
-  IconBolt,
-  IconTarget
 } from '@tabler/icons-react'
+import { useUser } from '@clerk/nextjs'
 
 export default function Page() {
   const { 
@@ -122,7 +118,7 @@ export default function Page() {
     }
     return `${Math.floor(seconds)} seconds ago`
   }
-
+const {user} = useUser();
   return (
     <main className="min-h-screen bg-linear-to-br from-slate-50 via-white to-blue-50/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
@@ -146,7 +142,7 @@ export default function Page() {
                 </Badge>
               </div>
               <h1 className="text-4xl font-bold text-slate-900 mb-2 tracking-tight">
-                Welcome back, Student! 👋
+                Welcome back, {user?.firstName || 'Student'}! 👋
               </h1>
               <p className="text-lg text-slate-600">
                 You're making incredible progress. Keep up the momentum!

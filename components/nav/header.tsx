@@ -3,10 +3,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { IconMenu2, IconX, IconLogout, IconChartArcs, IconDeviceVisionPro, IconLayoutDashboard, IconChevronsUp, IconChevronsDown, IconFlask, IconSparkles, IconBell, IconSearch } from "@tabler/icons-react";
-import { SignOutButton, useUser } from "@clerk/nextjs";
+import { SignOutButton } from "@clerk/nextjs";
 import { Button } from "../ui/button";
-import { Avatar, AvatarFallback } from "../ui/avatar";
-import { Badge } from "../ui/badge";
 import { useNavbar } from "@/lib/contexts/navbar-context";
 import { NotificationDialog } from "./notification-dialog";
 import { UserMenu } from "./user-menu";
@@ -39,7 +37,7 @@ export function Header({
                 </button>
             )}
 
-            <header className={`fixed inset-x-0 top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-200/60 transition-transform duration-300 ${
+            <header className={`fixed inset-x-0 top-0 z-50 bg-white backdrop-blur-xl border-b border-gray-200/60 transition-transform duration-300 ${
                 isNavbarVisible ? 'translate-y-0' : '-translate-y-full'
             }`}>
                 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

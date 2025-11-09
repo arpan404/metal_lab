@@ -1,5 +1,4 @@
 
-
 import { SystemPromptForChat } from '@/lib/prompts';
 import { xai } from '@ai-sdk/xai'
 import { streamText } from 'ai'

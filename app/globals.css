@@ -120,3 +120,48 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+/* Custom range slider styling for dark theme */
+.slider-thumb::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgb(161 161 170);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 2px solid rgb(39 39 42);
+}
+
+.slider-thumb::-webkit-slider-thumb:hover {
+  background: rgb(212 212 216);
+  transform: scale(1.1);
+}
+
+.slider-thumb::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgb(161 161 170);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 2px solid rgb(39 39 42);
+}
+
+.slider-thumb::-moz-range-thumb:hover {
+  background: rgb(212 212 216);
+  transform: scale(1.1);
+}
