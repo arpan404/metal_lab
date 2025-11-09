@@ -5,7 +5,7 @@ import { ClassicalEngine } from '../engines/ClassicalEngine';
 import type {
   ExperimentState,
   ExplanationPoint,
-} from '../types/experiments';
+} from '../types/Experiments';
 
 import type { ParameterConfig, LearningObjective, Vector3D } from '../types/index';
 import * as CANNON from 'cannon-es';

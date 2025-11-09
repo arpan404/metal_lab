@@ -1,5 +1,5 @@
 // physics-engine/llm/ExplanationPoints.ts
-import type { ExplanationPoint } from '../types/experiments';
+import type { ExplanationPoint } from '../types/Experiments';
 
 /**
  * Predefined explanation points for each experiment

@@ -6,7 +6,7 @@ import type {
   LearningObjective
 } from '../types';
 
-import type { ExperimentState, ExplanationPoint } from '../types/experiments';
+import type { ExperimentState, ExplanationPoint } from '../types/Experiments';
 
 export class YoungDoubleSlit extends BaseExperiment {
   private quantumEngine: QuantumEngine;

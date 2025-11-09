@@ -1,5 +1,5 @@
 // physics-engine/state/StateManager.ts
-import type { ExperimentState, Snapshot } from '../types';
+import type { ExperimentState, Snapshot } from '../types/Experiments';
 import type { ParameterChange } from '../types/index';
 
 export class StateManager {
