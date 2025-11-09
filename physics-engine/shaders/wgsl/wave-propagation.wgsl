@@ -1,183 +1,148 @@
-// Wave propagation compute shader for double-slit experiment
-// Solves 2D wave equation: ∂²ψ/∂t² = c²(∂²ψ/∂x² + ∂²ψ/∂y²)
+// physics-engine/shaders/wgsl/wave-propagation.wgsl
+// Wave Propagation Compute Shader for Young's Double Slit Experiment
+// Uses Schrödinger equation to simulate quantum wave propagation
 
-struct WavePoint {
-  amplitude: f32,
-  phase: f32,
-  velocity: f32,
-  damping: f32,
-}
-
-struct SimParams {
-  time: f32,
+struct WaveParams {
+  width: u32,
+  height: u32,
   deltaTime: f32,
-  waveSpeed: f32,
-  frequency: f32,
-  slitWidth: f32,
+  wavelength: f32,
   slitSeparation: f32,
-  gridWidth: u32,
-  gridHeight: u32,
+  slitWidth: f32,
+  amplitude: f32,
+  dampingFactor: f32,
 }
 
-@group(0) @binding(0) var<storage, read_write> waveField: array<WavePoint>;
-@group(0) @binding(1) var<storage, read_write> nextWaveField: array<WavePoint>;
-@group(0) @binding(2) var<uniform> params: SimParams;
-@group(0) @binding(3) var<storage, read> barriers: array<f32>; // 1 = barrier, 0 = free
-
-override workgroupSizeX: u32 = 8;
-override workgroupSizeY: u32 = 8;
-
-fn getIndex(x: u32, y: u32) -> u32 {
-  return y * params.gridWidth + x;
+struct Complex {
+  real: f32,
+  imag: f32,
 }
 
-fn isBarrier(x: u32, y: u32) -> bool {
-  let idx = getIndex(x, y);
-  return barriers[idx] > 0.5;
+@group(0) @binding(0) var<uniform> params: WaveParams;
+@group(0) @binding(1) var<storage, read> waveIn: array<Complex>;
+@group(0) @binding(2) var<storage, read_write> waveOut: array<Complex>;
+@group(0) @binding(3) var<storage, read> barrier: array<f32>;
+
+// Complex number operations
+fn complexMul(a: Complex, b: Complex) -> Complex {
+  return Complex(
+    a.real * b.real - a.imag * b.imag,
+    a.real * b.imag + a.imag * b.real
+  );
 }
 
-fn laplacian(x: u32, y: u32) -> f32 {
-  // 5-point stencil for 2D Laplacian
-  let center = waveField[getIndex(x, y)].amplitude;
+fn complexAdd(a: Complex, b: Complex) -> Complex {
+  return Complex(a.real + b.real, a.imag + b.imag);
+}
+
+fn complexScale(c: Complex, s: f32) -> Complex {
+  return Complex(c.real * s, c.imag * s);
+}
+
+fn complexMagnitudeSquared(c: Complex) -> f32 {
+  return c.real * c.real + c.imag * c.imag;
+}
+
+// Laplacian operator for 2D wave equation
+fn laplacian(index: u32) -> Complex {
+  let x = index % params.width;
+  let y = index / params.width;
   
-  var sum = -4.0 * center;
+  var sum = Complex(0.0, 0.0);
+  var count = 0.0;
   
-  // Handle boundary conditions
+  // Central difference approximation
   if (x > 0u) {
-    sum += waveField[getIndex(x - 1u, y)].amplitude;
-  } else {
-    sum += center; // Neumann boundary
+    sum = complexAdd(sum, waveIn[index - 1u]);
+    count += 1.0;
   }
-  
-  if (x < params.gridWidth - 1u) {
-    sum += waveField[getIndex(x + 1u, y)].amplitude;
-  } else {
-    sum += center;
+  if (x < params.width - 1u) {
+    sum = complexAdd(sum, waveIn[index + 1u]);
+    count += 1.0;
   }
-  
   if (y > 0u) {
-    sum += waveField[getIndex(x, y - 1u)].amplitude;
-  } else {
-    sum += center;
+    sum = complexAdd(sum, waveIn[index - params.width]);
+    count += 1.0;
+  }
+  if (y < params.height - 1u) {
+    sum = complexAdd(sum, waveIn[index + params.width]);
+    count += 1.0;
   }
   
-  if (y < params.gridHeight - 1u) {
-    sum += waveField[getIndex(x, y + 1u)].amplitude;
-  } else {
-    sum += center;
-  }
-  
-  return sum;
+  let center = complexScale(waveIn[index], -count);
+  return complexAdd(sum, center);
 }
 
-fn generateSource(x: u32, y: u32) -> f32 {
-  // Point source at left edge
-  if (x == 0u && y == params.gridHeight / 2u) {
-    return sin(params.time * params.frequency * 6.28318530718);
-  }
-  
-  // Line source for plane wave
-  if (x == 0u) {
-    let centerY = f32(params.gridHeight) / 2.0;
-    let dist = abs(f32(y) - centerY);
-    if (dist < 10.0) {
-      return sin(params.time * params.frequency * 6.28318530718) * 
-             exp(-dist * dist / 100.0);
-    }
-  }
-  
-  return 0.0;
-}
-
-@compute @workgroup_size(workgroupSizeX, workgroupSizeY, 1)
+@compute @workgroup_size(16, 16)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let x = global_id.x;
   let y = global_id.y;
   
-  if (x >= params.gridWidth || y >= params.gridHeight) {
+  if (x >= params.width || y >= params.height) {
     return;
   }
   
-  let idx = getIndex(x, y);
+  let index = y * params.width + x;
   
-  // Skip if this is a barrier
-  if (isBarrier(x, y)) {
-    nextWaveField[idx].amplitude = 0.0;
-    nextWaveField[idx].velocity = 0.0;
+  // Check if we're at a barrier point
+  let barrierValue = barrier[index];
+  if (barrierValue > 0.5) {
+    // Complete reflection at barrier
+    waveOut[index] = Complex(0.0, 0.0);
     return;
   }
   
-  let current = waveField[idx];
+  // Calculate wave propagation using finite difference method
+  let k = 2.0 * 3.14159265359 / params.wavelength;
+  let speedOfLight = 1.0;
+  let waveSpeed = speedOfLight * k;
   
-  // Wave equation with finite difference
-  let c2 = params.waveSpeed * params.waveSpeed;
-  let dt2 = params.deltaTime * params.deltaTime;
+  // Schrödinger-like propagation
+  let lap = laplacian(index);
+  let current = waveIn[index];
   
-  let laplace = laplacian(x, y);
-  let acceleration = c2 * laplace;
+  // Time evolution: ψ(t+dt) = ψ(t) + i*ħ*∇²ψ*dt
+  let hbar = 1.0;
+  let dt = params.deltaTime;
   
-  // Add source term
-  let source = generateSource(x, y);
+  let derivative = complexScale(lap, hbar * waveSpeed * waveSpeed * dt);
+  let imaginaryUnit = Complex(0.0, 1.0);
+  let evolution = complexMul(imaginaryUnit, derivative);
   
-  // Verlet integration for wave equation
-  var newAmplitude = current.amplitude + current.velocity * params.deltaTime + 
-                      0.5 * acceleration * dt2 + source * dt2;
-  var newVelocity = current.velocity + acceleration * params.deltaTime;
+  var newWave = complexAdd(current, evolution);
   
-  // Apply damping at boundaries
-  let boundaryDist = min(
-    min(f32(x), f32(params.gridWidth - x - 1u)),
-    min(f32(y), f32(params.gridHeight - y - 1u))
-  );
+  // Apply damping to prevent runaway values
+  newWave = complexScale(newWave, params.dampingFactor);
   
-  if (boundaryDist < 20.0) {
-    let damping = exp(-pow(20.0 - boundaryDist, 2.0) / 50.0);
-    newAmplitude *= damping;
-    newVelocity *= damping;
+  // Source term at the left edge (wave emitter)
+  if (x < 5u) {
+    let sourcePhase = k * f32(x) - waveSpeed * f32(y) * dt;
+    let source = Complex(
+      params.amplitude * cos(sourcePhase),
+      params.amplitude * sin(sourcePhase)
+    );
+    newWave = complexAdd(newWave, source);
   }
   
-  // Update phase for visualization
-  let newPhase = atan2(newVelocity, newAmplitude);
-  
-  // Write results
-  nextWaveField[idx].amplitude = newAmplitude;
-  nextWaveField[idx].velocity = newVelocity;
-  nextWaveField[idx].phase = newPhase;
-  nextWaveField[idx].damping = current.damping;
+  waveOut[index] = newWave;
 }
 
-// Kernel for setting up double-slit barrier
-@compute @workgroup_size(workgroupSizeX, workgroupSizeY, 1)
-fn setupDoubleSlit(@builtin(global_invocation_id) global_id: vec3<u32>) {
+// Kernel to calculate intensity for visualization
+@compute @workgroup_size(16, 16)
+fn calculateIntensity(@builtin(global_invocation_id) global_id: vec3<u32>) {
   let x = global_id.x;
   let y = global_id.y;
   
-  if (x >= params.gridWidth || y >= params.gridHeight) {
+  if (x >= params.width || y >= params.height) {
     return;
   }
   
-  let idx = getIndex(x, y);
+  let index = y * params.width + x;
+  let wave = waveIn[index];
   
-  // Create barrier at x = gridWidth/3
-  let barrierX = params.gridWidth / 3u;
-  let centerY = f32(params.gridHeight) / 2.0;
+  // Calculate probability density (intensity)
+  let intensity = complexMagnitudeSquared(wave);
   
-  if (x == barrierX) {
-    let yDist = abs(f32(y) - centerY);
-    
-    // Check if we're in a slit region
-    let slit1Y = centerY - params.slitSeparation / 2.0;
-    let slit2Y = centerY + params.slitSeparation / 2.0;
-    
-    let inSlit1 = abs(f32(y) - slit1Y) < params.slitWidth / 2.0;
-    let inSlit2 = abs(f32(y) - slit2Y) < params.slitWidth / 2.0;
-    
-    if (!inSlit1 && !inSlit2) {
-      barriers[idx] = 1.0; // This is a barrier
-    } else {
-      barriers[idx] = 0.0; // This is open (slit)
-    }
-  } else {
-    barriers[idx] = 0.0; // Not a barrier
-  }
+  // Store in a separate buffer for rendering
+  // This would be bound to a different binding point
 }
