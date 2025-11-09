@@ -297,7 +297,15 @@ export const TransformerSimulationProvider = ({
     }
   };
   const nextStep = () => {
-    setCurrentStep((prev) => (prev + 1) % 8); // 8 steps total: 0-7 (Input -> Softmax)
+    setCurrentStep((prev) => {
+      const next = prev + 1;
+      // In AI tutor mode (aiMode + stepByStep), don't wrap around - let the tutor handle completion
+      // In all other modes (manual, auto-continue, etc.), wrap around to loop
+      if (aiMode && stepByStep && next > 7) {
+        return prev; // Stay at step 7, let the AI tutor handle what's next
+      }
+      return next % 8; // Normal wrap-around for continuous mode
+    });
   };
 
   return (
@@ -374,9 +382,12 @@ export const useTransformerSimulation = () => {
         }))
       );
 
-      // Reset prediction when input changes
-      context.setPredictedToken("...");
-      context.setComputePrediction(false);
+      // Reset prediction when input changes (but NOT during auto-continue)
+      // Auto-continue will handle its own state management
+      if (!context.autoContinue) {
+        context.setPredictedToken("...");
+        context.setComputePrediction(false);
+      }
     } catch (error) {
       console.error("Tokenization error:", error);
     }
@@ -441,11 +452,19 @@ export const useTransformerSimulation = () => {
         topToken !== "..." &&
         topToken !== "<|endoftext|>"
       ) {
-        // Wait longer for smooth viewing experience (0.5x speed = double the time)
+        console.log(
+          "🔄 Auto-continue triggered:",
+          "Token:", topToken,
+          "Current count:", context.generatedTokenCount,
+          "Max:", context.maxTokens,
+          "Current step:", context.currentStep
+        );
+
+        // Wait for animation to complete step 7 (reduce delay from 5000 to 3000 for faster generation)
         setTimeout(() => {
           const newText = context.inputText + topToken;
           console.log(
-            "Auto-continuing with token:",
+            "✅ Auto-continuing with token:",
             topToken,
             "New text:",
             newText,
@@ -464,15 +483,17 @@ export const useTransformerSimulation = () => {
           context.setCurrentStep(0);
 
           // Ensure simulation is playing for auto-continue to work
-          if (!context.isPlaying && context.autoContinue) {
+          if (!context.isPlaying) {
+            console.log("⚠️ Simulation was paused, restarting...");
             context.togglePlay();
           }
 
           // Ensure stepByStep is off for auto-continue mode
           if (context.stepByStep) {
+            console.log("⚠️ Step-by-step was on, disabling for auto-continue...");
             context.toggleStepByStep();
           }
-        }, 5000); // 5 second delay (0.5x speed) for smooth auto-generation viewing
+        }, 3000); // 3 second delay for smooth auto-generation viewing
       }
     } catch (error) {
       console.error("Model prediction error:", error);
@@ -531,10 +552,10 @@ export const useTransformerSimulation = () => {
     controls.zoomSpeed = 1.0;
 
     // Simplified lighting (fewer lights = better performance)
-    const ambientLight = new THREE.AmbientLight(0x404040, 1.0);
+    const ambientLight = new THREE.AmbientLight(0x404040, 2.5);
     scene.add(ambientLight);
 
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const mainLight = new THREE.DirectionalLight(0xffffff, 3.0);
     mainLight.position.set(10, 20, 10);
     scene.add(mainLight);
 
@@ -556,7 +577,7 @@ export const useTransformerSimulation = () => {
     const tokenObjects: THREE.Group[] = [];
     const tokenSpacing = 4.5; // Increased from 3.5 for even better vertical spacing
     const startY = (-(numTokens - 1) * tokenSpacing) / 2;
-    const horizontalSpacing = 8; // Increased horizontal spacing between stages
+    const horizontalSpacing = 5; // Horizontal spacing between stages (reduced from 8 for closer layout)
     const stageXPositions = {
       tokens: -horizontalSpacing * 3,
       embeddings: -horizontalSpacing * 2,
@@ -3881,7 +3902,7 @@ export default function TransformerSimulation() {
       ) : null}
 
       {/* AI Mode Toggle - Simple Switch */}
-      <div className="absolute top-6 right-6 z-50">
+      <div className="absolute top-6 left-6 z-50">
         <div className="bg-zinc-900/95 backdrop-blur-md rounded-lg border border-zinc-700/50 shadow-lg px-4 py-3">
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium text-zinc-300">

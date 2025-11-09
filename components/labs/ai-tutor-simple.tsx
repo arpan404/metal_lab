@@ -876,9 +876,13 @@ export function SimpleAITutor() {
       onNext();
       getExplanation(currentStep + 1);
     } else {
+      // At step 7 (final step), complete the cycle and prepare for next generation
       setHasCompletedOnce(true);
-      setCurrentStep(0);
       setInputText(inputText + (predictedToken ? predictedToken : ""));
+      // Reset to step 0 to start a new cycle with the appended token
+      setCurrentStep(0);
+      // Get explanation for step 0 again with the new context
+      getExplanation(0);
     }
   };
 
