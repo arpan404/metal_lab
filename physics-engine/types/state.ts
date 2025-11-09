@@ -1,6 +1,6 @@
 // physics-engine/types/state.ts
 
-import type { ExperimentState } from './experiments';
+import type { ExperimentState } from './Experiments';
 
 export interface StateSnapshot {
   id: string;

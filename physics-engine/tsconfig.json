@@ -2,7 +2,7 @@
     "compilerOptions": {
       "target": "ES2020",
       "module": "ESNext",
-      "lib": ["ES2020", "DOM", "DOM.Iterable", "WebGPU"],
+      "lib": ["ES2020", "DOM", "DOM.Iterable"/*, "WebGPU"*/],
       "moduleResolution": "node",
       "declaration": true,
       "declarationMap": true,
@@ -25,4 +25,4 @@
       "dist",
       "**/*.test.ts"
     ]
-  }
+}

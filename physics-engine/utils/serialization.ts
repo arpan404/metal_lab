@@ -1,6 +1,6 @@
 // physics-engine/utils/serialization.ts
 
-import type { ExperimentState, Snapshot } from '../types/experiments';
+import type { ExperimentState, Snapshot } from '../types/Experiments';
 
 /**
  * Serialize experiment state to JSON

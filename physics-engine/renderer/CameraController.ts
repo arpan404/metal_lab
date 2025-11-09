@@ -1,6 +1,6 @@
 // physics-engine/renderer/CameraController.ts
 import * as THREE from 'three';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 
 import type { CameraConfig } from '../types';
 

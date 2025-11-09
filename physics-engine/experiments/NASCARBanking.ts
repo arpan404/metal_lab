@@ -7,7 +7,7 @@ import type {
   Vector3D
 } from '../types';
 
-import type { ExperimentState, ExplanationPoint } from '../types/experiments';
+import type { ExperimentState, ExplanationPoint } from '../types/Experiments';
 
 export class NASCARBanking extends BaseExperiment {
   private classicalEngine: ClassicalEngine;

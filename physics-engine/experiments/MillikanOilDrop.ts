@@ -4,7 +4,7 @@ import { ElectricFieldEngine } from '../engines/ElectricFieldEngine';
 import type {
   ExperimentState,
   ExplanationPoint
-} from '../types/experiments';
+} from '../types/Experiments';
 
 import type { ParameterConfig, LearningObjective, ChargedParticle } from '../types/index';
 
