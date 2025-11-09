@@ -111,16 +111,83 @@ export const TransformerSimulationProvider = ({
   const [isPlaying, setIsPlaying] = useState(false);
   // List of words to randomly select from instead of using LLM
   const wordList = [
-    "The", "cat", "sat", "on", "the", "mat", "and", "looked", "at", "the", "sky",
-    "A", "dog", "ran", "through", "the", "park", "chasing", "a", "ball",
-    "The", "sun", "shone", "brightly", "in", "the", "morning", "light",
-    "Birds", "sang", "sweetly", "from", "the", "trees", "above",
-    "The", "river", "flowed", "gently", "through", "the", "valley",
-    "Children", "played", "happily", "in", "the", "garden",
-    "The", "wind", "whispered", "secrets", "through", "the", "leaves",
-    "Stars", "twinkled", "brightly", "in", "the", "night", "sky",
-    "The", "moon", "glowed", "softly", "over", "the", "quiet", "town",
-    "Rain", "fell", "gently", "on", "the", "rooftops", "below"
+    "The",
+    "cat",
+    "sat",
+    "on",
+    "the",
+    "mat",
+    "and",
+    "looked",
+    "at",
+    "the",
+    "sky",
+    "A",
+    "dog",
+    "ran",
+    "through",
+    "the",
+    "park",
+    "chasing",
+    "a",
+    "ball",
+    "The",
+    "sun",
+    "shone",
+    "brightly",
+    "in",
+    "the",
+    "morning",
+    "light",
+    "Birds",
+    "sang",
+    "sweetly",
+    "from",
+    "the",
+    "trees",
+    "above",
+    "The",
+    "river",
+    "flowed",
+    "gently",
+    "through",
+    "the",
+    "valley",
+    "Children",
+    "played",
+    "happily",
+    "in",
+    "the",
+    "garden",
+    "The",
+    "wind",
+    "whispered",
+    "secrets",
+    "through",
+    "the",
+    "leaves",
+    "Stars",
+    "twinkled",
+    "brightly",
+    "in",
+    "the",
+    "night",
+    "sky",
+    "The",
+    "moon",
+    "glowed",
+    "softly",
+    "over",
+    "the",
+    "quiet",
+    "town",
+    "Rain",
+    "fell",
+    "gently",
+    "on",
+    "the",
+    "rooftops",
+    "below",
   ];
 
   // Randomly select initial input text from the word list
@@ -355,15 +422,15 @@ export const useTransformerSimulation = () => {
             "/",
             context.maxTokens
           );
-          
+
           // Append the predicted token to input (this is the key to continuous generation!)
           context.setInputText(newText);
           context.setGeneratedTokenCount(context.generatedTokenCount + 1);
-          
+
           // Reset to start the cycle again with the new input
           context.setComputePrediction(false);
           context.setCurrentStep(0);
-          
+
           // Ensure stepByStep is off for auto-continue mode
           if (context.stepByStep) {
             context.toggleStepByStep();
@@ -1243,7 +1310,7 @@ export const useTransformerSimulation = () => {
         dataFlowLines.push(line);
       }
 
-      // lineStage 7: output→softmax (animates at step 7) 
+      // lineStage 7: output→softmax (animates at step 7)
       for (let i = 0; i < numTokens; i++) {
         const points = [
           outputTensors[i].position.clone().add(new THREE.Vector3(0.4, 0, 0)),
@@ -1322,18 +1389,23 @@ export const useTransformerSimulation = () => {
       const progress = Math.min(elapsed / sprite.userData.duration, 1);
 
       // Check if this is a softmax transformation sprite (has midPos and transformStage)
-      if (sprite.userData.midPos && sprite.userData.transformStage !== undefined) {
+      if (
+        sprite.userData.midPos &&
+        sprite.userData.transformStage !== undefined
+      ) {
         // Three-stage animation: logit -> exp() -> normalized probability
         const midPos = sprite.userData.midPos;
-        
+
         if (progress < 0.33) {
           // Stage 1: Move from output to midpoint (showing logit value)
           const localProgress = progress / 0.33;
-          const easedProgress = localProgress < 0.5
-            ? 2 * localProgress * localProgress
-            : 1 - Math.pow(-2 * localProgress + 2, 2) / 2;
+          const easedProgress =
+            localProgress < 0.5
+              ? 2 * localProgress * localProgress
+              : 1 - Math.pow(-2 * localProgress + 2, 2) / 2;
           sprite.position.lerpVectors(startPos, midPos, easedProgress);
-          sprite.material.opacity = 0.7 + Math.sin(localProgress * Math.PI) * 0.3;
+          sprite.material.opacity =
+            0.7 + Math.sin(localProgress * Math.PI) * 0.3;
           sprite.scale.set(1, 0.5, 1);
         } else if (progress < 0.66) {
           // Stage 2: At midpoint, show exp() transformation (pulse and color change)
@@ -1342,7 +1414,7 @@ export const useTransformerSimulation = () => {
           const pulse = 1 + Math.sin(pulseProgress * Math.PI * 4) * 0.3;
           sprite.scale.set(pulse, pulse * 0.5, 1);
           sprite.material.opacity = 0.9;
-          
+
           // Update text to show "exp()" transformation once
           if (!sprite.userData.expShown && pulseProgress > 0.3) {
             sprite.userData.expShown = true;
@@ -1350,12 +1422,17 @@ export const useTransformerSimulation = () => {
         } else {
           // Stage 3: Move to softmax panel (showing normalized probability)
           const localProgress = (progress - 0.66) / 0.34;
-          const easedProgress = localProgress < 0.5
-            ? 2 * localProgress * localProgress
-            : 1 - Math.pow(-2 * localProgress + 2, 2) / 2;
+          const easedProgress =
+            localProgress < 0.5
+              ? 2 * localProgress * localProgress
+              : 1 - Math.pow(-2 * localProgress + 2, 2) / 2;
           sprite.position.lerpVectors(midPos, endPos, easedProgress);
           sprite.material.opacity = Math.sin(localProgress * Math.PI) * 0.8;
-          sprite.scale.set(1 - localProgress * 0.3, 0.5 - localProgress * 0.2, 1);
+          sprite.scale.set(
+            1 - localProgress * 0.3,
+            0.5 - localProgress * 0.2,
+            1
+          );
         }
       } else {
         // Normal two-point animation
@@ -1393,62 +1470,73 @@ export const useTransformerSimulation = () => {
     let hoverInfoDiv: HTMLDivElement | null = null;
 
     // Component metadata for hover information
-    const componentInfo: Record<string, { title: string; description: string; how: string; why: string }> = {
+    const componentInfo: Record<
+      string,
+      { title: string; description: string; how: string; why: string }
+    > = {
       token: {
         title: "Input Tokens",
-        description: "Raw text broken down into discrete units (tokens) that the model can process.",
+        description:
+          "Raw text broken down into discrete units (tokens) that the model can process.",
         how: "A tokenizer splits text using rules (word, subword, or character-level). Each token gets a unique ID from a vocabulary.",
-        why: "Neural networks can't process raw text directly—they need numerical representations. Tokenization converts text into a format the model understands."
+        why: "Neural networks can't process raw text directly—they need numerical representations. Tokenization converts text into a format the model understands.",
       },
       embedding: {
         title: "Embeddings",
-        description: "Converts token IDs into dense vector representations that capture semantic meaning.",
+        description:
+          "Converts token IDs into dense vector representations that capture semantic meaning.",
         how: "Each token ID is mapped to a learned vector (e.g., 512 dimensions). Similar tokens have similar vectors in high-dimensional space.",
-        why: "Embeddings encode semantic relationships: 'king' - 'man' + 'woman' ≈ 'queen'. This allows the model to understand meaning and context."
+        why: "Embeddings encode semantic relationships: 'king' - 'man' + 'woman' ≈ 'queen'. This allows the model to understand meaning and context.",
       },
       qkv: {
         title: "QKV Projection",
-        description: "Creates three different views of each token: Query (what to look for), Key (what's available), and Value (information to pass).",
+        description:
+          "Creates three different views of each token: Query (what to look for), Key (what's available), and Value (information to pass).",
         how: "Input embeddings are multiplied by three learned weight matrices (Wq, Wk, Wv) to produce Q, K, and V matrices.",
-        why: "Separating Q, K, V allows the attention mechanism to compare 'what I'm looking for' (Q) with 'what others offer' (K) and retrieve 'relevant information' (V)."
+        why: "Separating Q, K, V allows the attention mechanism to compare 'what I'm looking for' (Q) with 'what others offer' (K) and retrieve 'relevant information' (V).",
       },
       attention: {
         title: "Attention Mechanism",
-        description: "Computes how much each token should focus on every other token to gather contextual information.",
+        description:
+          "Computes how much each token should focus on every other token to gather contextual information.",
         how: "Calculates attention scores: softmax(Q·K^T / √d), then weights Values: Attention(Q,K,V) = softmax(QK^T/√d)V. Multiple heads capture different relationships.",
-        why: "This is the transformer's superpower! It lets each token dynamically gather relevant context from all other tokens, enabling understanding of relationships and dependencies."
+        why: "This is the transformer's superpower! It lets each token dynamically gather relevant context from all other tokens, enabling understanding of relationships and dependencies.",
       },
       ffn: {
         title: "Feed-Forward Network (FFN)",
-        description: "Processes each token independently through a 2-layer neural network with non-linear activation.",
+        description:
+          "Processes each token independently through a 2-layer neural network with non-linear activation.",
         how: "FFN(x) = ReLU(xW1 + b1)W2 + b2. Typically expands dimension (e.g., 512 → 2048 → 512) then contracts back.",
-        why: "After gathering context via attention, FFN adds non-linear transformations to process and integrate that information. It's where the model 'thinks' about what it learned."
+        why: "After gathering context via attention, FFN adds non-linear transformations to process and integrate that information. It's where the model 'thinks' about what it learned.",
       },
       layerNorm: {
         title: "Layer Normalization",
-        description: "Stabilizes training by normalizing values across features to have zero mean and unit variance.",
+        description:
+          "Stabilizes training by normalizing values across features to have zero mean and unit variance.",
         how: "For each token: norm(x) = γ(x - μ) / √(σ² + ε) + β, where μ and σ are mean/std computed across features.",
-        why: "Prevents values from exploding or vanishing during training. Makes training faster and more stable by keeping values in a reasonable range throughout the network."
+        why: "Prevents values from exploding or vanishing during training. Makes training faster and more stable by keeping values in a reasonable range throughout the network.",
       },
       output: {
         title: "Output Hidden States",
-        description: "Final contextualized representation of each token after passing through all transformer layers.",
+        description:
+          "Final contextualized representation of each token after passing through all transformer layers.",
         how: "Result of stacking multiple transformer blocks (attention + FFN + normalization). Each layer adds deeper understanding and abstraction.",
-        why: "These rich representations encode each token's meaning in context of the entire sequence. Used for downstream tasks like generation, classification, or translation."
+        why: "These rich representations encode each token's meaning in context of the entire sequence. Used for downstream tasks like generation, classification, or translation.",
       },
       prediction: {
         title: "Softmax & Next Token Prediction",
-        description: "Converts final hidden state into probability distribution over the vocabulary to predict the next token.",
+        description:
+          "Converts final hidden state into probability distribution over the vocabulary to predict the next token.",
         how: "Hidden state is projected to vocabulary size (e.g., 512 → 50,000), then softmax converts logits to probabilities: P(token_i) = exp(z_i) / Σexp(z_j).",
-        why: "This is how the model generates text! Highest probability token is selected (or sampled with temperature). In autoregressive generation, this loops: predict → append → repeat."
-      }
+        why: "This is how the model generates text! Highest probability token is selected (or sampled with temperature). In autoregressive generation, this loops: predict → append → repeat.",
+      },
     };
 
     function createHoverInfo(): HTMLDivElement {
       // Add animations to document if not already present
-      if (!document.getElementById('hover-animations')) {
-        const style = document.createElement('style');
-        style.id = 'hover-animations';
+      if (!document.getElementById("hover-animations")) {
+        const style = document.createElement("style");
+        style.id = "hover-animations";
         style.textContent = `
           @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -1477,7 +1565,8 @@ export const useTransformerSimulation = () => {
       div.style.pointerEvents = "none";
       div.style.zIndex = "1000";
       div.style.fontFamily = "system-ui, -apple-system, 'Segoe UI', sans-serif";
-      div.style.boxShadow = "0 20px 60px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)";
+      div.style.boxShadow =
+        "0 20px 60px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.08)";
       div.style.backdropFilter = "blur(20px)";
       div.style.transition = "opacity 0.2s ease-in-out";
       div.style.opacity = "0";
@@ -1490,19 +1579,22 @@ export const useTransformerSimulation = () => {
 
     // Cache for AI-generated explanations with expiration (10 minutes)
     const CACHE_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
-    const aiExplanationCache = new Map<string, { 
-      data: { how: string; why: string }; 
-      timestamp: number;
-    }>();
+    const aiExplanationCache = new Map<
+      string,
+      {
+        data: { how: string; why: string };
+        timestamp: number;
+      }
+    >();
     let currentFetchController: AbortController | null = null;
 
     async function fetchAIExplanation(
-      componentType: string, 
+      componentType: string,
       onStream?: (partial: { how: string; why: string }) => void
     ): Promise<{ how: string; why: string }> {
       // Check cache first and validate expiry
       const cached = aiExplanationCache.get(componentType);
-      if (cached && (Date.now() - cached.timestamp) < CACHE_EXPIRY_MS) {
+      if (cached && Date.now() - cached.timestamp < CACHE_EXPIRY_MS) {
         return cached.data;
       }
 
@@ -1514,7 +1606,9 @@ export const useTransformerSimulation = () => {
       currentFetchController = new AbortController();
 
       try {
-        const prompt = `I'm hovering over the ${componentInfo[componentType]?.title || componentType} in the transformer visualization. Help me understand it!
+        const prompt = `I'm hovering over the ${
+          componentInfo[componentType]?.title || componentType
+        } in the transformer visualization. Help me understand it!
 
 Give me:
 HOW: Explain how it actually works - the mechanics, maybe include key formulas if relevant. Make it clear but not dry. (2-3 sentences)
@@ -1552,7 +1646,9 @@ WHY: [why this is actually important and interesting]`;
             fullResponse += chunk;
 
             // Extract and display only the "answer" field content from JSON
-            const answerMatch = fullResponse.match(/"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            const answerMatch = fullResponse.match(
+              /"answer"\s*:\s*"((?:[^"\\]|\\.)*)"/
+            );
             if (answerMatch) {
               // Unescape JSON string
               extractedAnswer = answerMatch[1]
@@ -1563,7 +1659,9 @@ WHY: [why this is actually important and interesting]`;
                 .replace(/\\\\/g, "\\");
 
               // Parse partial content
-              const howMatch = extractedAnswer.match(/HOW:\s*([\s\S]+?)(?=WHY:|$)/);
+              const howMatch = extractedAnswer.match(
+                /HOW:\s*([\s\S]+?)(?=WHY:|$)/
+              );
               const whyMatch = extractedAnswer.match(/WHY:\s*([\s\S]+?)$/);
 
               const partialExplanation = {
@@ -1584,18 +1682,22 @@ WHY: [why this is actually important and interesting]`;
         const whyMatch = extractedAnswer.match(/WHY:\s*([\s\S]+?)$/);
 
         const explanation = {
-          how: howMatch ? howMatch[1].trim() : componentInfo[componentType]?.how || "Processing...",
-          why: whyMatch ? whyMatch[1].trim() : componentInfo[componentType]?.why || "Loading...",
+          how: howMatch
+            ? howMatch[1].trim()
+            : componentInfo[componentType]?.how || "Processing...",
+          why: whyMatch
+            ? whyMatch[1].trim()
+            : componentInfo[componentType]?.why || "Loading...",
         };
 
         // Cache the result with timestamp
         aiExplanationCache.set(componentType, {
           data: explanation,
-          timestamp: Date.now()
+          timestamp: Date.now(),
         });
         return explanation;
       } catch (error) {
-        if ((error as Error).name === 'AbortError') {
+        if ((error as Error).name === "AbortError") {
           throw error; // Re-throw abort errors
         }
         console.error("Error fetching AI explanation:", error);
@@ -1603,14 +1705,18 @@ WHY: [why this is actually important and interesting]`;
         const info = componentInfo[componentType];
         return {
           how: info?.how || "Unable to load explanation",
-          why: info?.why || "Unable to load explanation"
+          why: info?.why || "Unable to load explanation",
         };
       }
     }
 
-    async function updateHoverInfo(object: THREE.Mesh, mouseX: number, mouseY: number) {
+    async function updateHoverInfo(
+      object: THREE.Mesh,
+      mouseX: number,
+      mouseY: number
+    ) {
       if (!hoverInfoDiv) return;
-      
+
       const info = componentInfo[object.userData.type];
       if (!info) return;
 
@@ -1740,13 +1846,17 @@ WHY: [why this is actually important and interesting]`;
 
             // Recalculate position with actual dimensions
             const maxX = window.innerWidth - hoverInfoDiv.offsetWidth - padding;
-            const maxY = window.innerHeight - hoverInfoDiv.offsetHeight - padding;
+            const maxY =
+              window.innerHeight - hoverInfoDiv.offsetHeight - padding;
             hoverInfoDiv.style.left = Math.min(mouseX + 20, maxX) + "px";
             hoverInfoDiv.style.top = Math.min(mouseY + 20, maxY) + "px";
           }
         };
 
-        const aiExplanation = await fetchAIExplanation(object.userData.type, updateHoverContent);
+        const aiExplanation = await fetchAIExplanation(
+          object.userData.type,
+          updateHoverContent
+        );
 
         // Final update with complete content
         if (hoveredObject === object && hoverInfoDiv) {
@@ -1788,7 +1898,7 @@ WHY: [why this is actually important and interesting]`;
           hoverInfoDiv.style.top = Math.min(mouseY + 20, maxY) + "px";
         }
       } catch (error) {
-        if ((error as Error).name !== 'AbortError') {
+        if ((error as Error).name !== "AbortError") {
           console.error("Failed to load AI explanation:", error);
         }
       }
@@ -1803,10 +1913,16 @@ WHY: [why this is actually important and interesting]`;
 
       // Check all interactive objects
       const interactiveObjects = [
-        ...tokenObjects.map(g => g.children[0] as THREE.Mesh),
+        ...tokenObjects.map((g) => g.children[0] as THREE.Mesh),
         ...embeddingTensors,
-        ...qkvTensors.flatMap(g => g.children.filter(c => c instanceof THREE.Mesh) as THREE.Mesh[]),
-        ...attentionHeads.flatMap(g => g.children.filter(c => c instanceof THREE.Mesh) as THREE.Mesh[]),
+        ...qkvTensors.flatMap(
+          (g) =>
+            g.children.filter((c) => c instanceof THREE.Mesh) as THREE.Mesh[]
+        ),
+        ...attentionHeads.flatMap(
+          (g) =>
+            g.children.filter((c) => c instanceof THREE.Mesh) as THREE.Mesh[]
+        ),
         ...attentionOutputs,
         ...ffnBlocks,
         ...layerNormBlocks,
@@ -1815,7 +1931,9 @@ WHY: [why this is actually important and interesting]`;
 
       // Add predicted token if it exists
       if (predictedToken) {
-        const predictionMesh = predictedToken.children.find(c => c instanceof THREE.Mesh && c.userData.type === "prediction") as THREE.Mesh;
+        const predictionMesh = predictedToken.children.find(
+          (c) => c instanceof THREE.Mesh && c.userData.type === "prediction"
+        ) as THREE.Mesh;
         if (predictionMesh) {
           interactiveObjects.push(predictionMesh);
         }
@@ -1825,18 +1943,24 @@ WHY: [why this is actually important and interesting]`;
 
       if (intersects.length > 0) {
         const newHovered = intersects[0].object as THREE.Mesh;
-        
+
         if (hoveredObject !== newHovered) {
           // Restore previous object
-          if (hoveredObject && hoveredObject.userData.originalEmissiveIntensity !== undefined) {
-            (hoveredObject.material as THREE.MeshStandardMaterial).emissiveIntensity = 
+          if (
+            hoveredObject &&
+            hoveredObject.userData.originalEmissiveIntensity !== undefined
+          ) {
+            (
+              hoveredObject.material as THREE.MeshStandardMaterial
+            ).emissiveIntensity =
               hoveredObject.userData.originalEmissiveIntensity;
           }
 
           // Highlight new object
           hoveredObject = newHovered;
           const material = hoveredObject.material as THREE.MeshStandardMaterial;
-          hoveredObject.userData.originalEmissiveIntensity = material.emissiveIntensity;
+          hoveredObject.userData.originalEmissiveIntensity =
+            material.emissiveIntensity;
           material.emissiveIntensity = (material.emissiveIntensity || 0) + 0.4;
 
           updateHoverInfo(hoveredObject, event.clientX, event.clientY);
@@ -1850,7 +1974,9 @@ WHY: [why this is actually important and interesting]`;
         // No intersection
         if (hoveredObject) {
           if (hoveredObject.userData.originalEmissiveIntensity !== undefined) {
-            (hoveredObject.material as THREE.MeshStandardMaterial).emissiveIntensity = 
+            (
+              hoveredObject.material as THREE.MeshStandardMaterial
+            ).emissiveIntensity =
               hoveredObject.userData.originalEmissiveIntensity;
           }
           hoveredObject = null;
@@ -1893,7 +2019,14 @@ WHY: [why this is actually important and interesting]`;
 
     // Particle spawn counters - limit to 10 particles per step per cycle
     const particleSpawnCounts: Record<number, number> = {
-      0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0
+      0: 0,
+      1: 0,
+      2: 0,
+      3: 0,
+      4: 0,
+      5: 0,
+      6: 0,
+      7: 0,
     };
     const MAX_PARTICLES_PER_STEP = 10;
     let lastStep = -1;
@@ -2112,31 +2245,39 @@ WHY: [why this is actually important and interesting]`;
 
           // Spawn particles showing softmax transformation: logits -> exp -> normalize -> probabilities
           // Stop spawning after prediction is complete (unless auto-continue is enabled)
-          const hasCompletedPrediction = context.predictedToken && context.predictedToken !== "...";
-          const shouldSpawnSoftmaxParticles = !hasCompletedPrediction || context.autoContinue;
-          const hasSoftmaxReachedLimit = particleSpawnCounts[7] >= MAX_PARTICLES_PER_STEP;
-          
-          if (Math.random() < 0.25 && context.intermediateValues.finalLogits && shouldSpawnSoftmaxParticles && !hasSoftmaxReachedLimit) {
+          const hasCompletedPrediction =
+            context.predictedToken && context.predictedToken !== "...";
+          const shouldSpawnSoftmaxParticles =
+            !hasCompletedPrediction || context.autoContinue;
+          const hasSoftmaxReachedLimit =
+            particleSpawnCounts[7] >= MAX_PARTICLES_PER_STEP;
+
+          if (
+            Math.random() < 0.25 &&
+            context.intermediateValues.finalLogits &&
+            shouldSpawnSoftmaxParticles &&
+            !hasSoftmaxReachedLimit
+          ) {
             const tokenIdx = Math.floor(Math.random() * outputTensors.length);
             const logitValue = context.intermediateValues.finalLogits[tokenIdx];
-            
+
             // Create particle showing logit value flowing from output
             const startPos = outputTensors[tokenIdx].position
               .clone()
               .add(new THREE.Vector3(0.5, 0, 0));
-            
+
             // Intermediate position for "exp()" transformation
             const midPos = new THREE.Vector3(
               (startPos.x + softmaxPanel.position.x) / 2,
               startPos.y + Math.sin(time + tokenIdx) * 0.5,
               0
             );
-            
+
             // Final position at softmax panel
             const endPos = softmaxPanel.position
               .clone()
               .add(new THREE.Vector3(-1.5, 1.5 - tokenIdx * 0.5, 0.2));
-            
+
             // Create sprite showing transformation stages
             const sprite = createValueSprite(logitValue, startPos, "#60a5fa");
             sprite.userData.midPos = midPos;
@@ -2251,13 +2392,23 @@ WHY: [why this is actually important and interesting]`;
 
         // Spawn value flow sprites based on current step - visualize data flowing through ALL connections
         // Stop spawning particles after prediction is complete (when we're about to auto-continue)
-        const hasCompletedPrediction = context.predictedToken && context.predictedToken !== "..." && currentAnimStep === 7;
-        const shouldSpawnParticles = !hasCompletedPrediction || context.autoContinue;
-        
+        const hasCompletedPrediction =
+          context.predictedToken &&
+          context.predictedToken !== "..." &&
+          currentAnimStep === 7;
+        const shouldSpawnParticles =
+          !hasCompletedPrediction || context.autoContinue;
+
         // Check if we've reached the particle limit for this step (10 particles max per step)
-        const hasReachedParticleLimit = particleSpawnCounts[currentAnimStep] >= MAX_PARTICLES_PER_STEP;
-        
-        if (Math.random() < 0.18 && context.intermediateValues && shouldSpawnParticles && !hasReachedParticleLimit) {
+        const hasReachedParticleLimit =
+          particleSpawnCounts[currentAnimStep] >= MAX_PARTICLES_PER_STEP;
+
+        if (
+          Math.random() < 0.18 &&
+          context.intermediateValues &&
+          shouldSpawnParticles &&
+          !hasReachedParticleLimit
+        ) {
           // 18% chance per frame for more frequent particles
           const values = context.intermediateValues;
 
@@ -2429,7 +2580,7 @@ WHY: [why this is actually important and interesting]`;
           // lineStage 6: layernorm→output (step 6)
           // lineStage 7: output→softmax (step 7)
           let targetOpacity = 0;
-          
+
           // After prediction is complete, fade out all lines (unless auto-continue is enabled)
           if (hasCompletedPrediction && !context.autoContinue) {
             targetOpacity = 0;
@@ -2446,14 +2597,15 @@ WHY: [why this is actually important and interesting]`;
           }
 
           // Faster lerp when stage changes, slower for animations
-          const lerpSpeed = (mat.userData.prevStep !== currentAnimStep) ? 0.25 : 0.18;
+          const lerpSpeed =
+            mat.userData.prevStep !== currentAnimStep ? 0.25 : 0.18;
           mat.userData.prevStep = currentAnimStep;
 
           // Smooth lerp to target opacity
-          mat.userData.currentOpacity = 
-            mat.userData.currentOpacity + 
+          mat.userData.currentOpacity =
+            mat.userData.currentOpacity +
             (targetOpacity - mat.userData.currentOpacity) * lerpSpeed;
-          
+
           mat.opacity = Math.max(0, Math.min(1, mat.userData.currentOpacity));
         });
 
@@ -2576,7 +2728,7 @@ WHY: [why this is actually important and interesting]`;
         } else if (context.autoContinue) {
           lerpFactor = 0.08; // Smoother camera follow during auto-generation
         }
-        
+
         controls.target.lerp(target, lerpFactor);
 
         // Move camera position to maintain good viewing angle
@@ -2617,23 +2769,23 @@ WHY: [why this is actually important and interesting]`;
     return () => {
       window.removeEventListener("resize", handleResize);
       renderer.domElement.removeEventListener("mousemove", onMouseMove);
-      
+
       // Cancel any pending AI fetch
       if (currentFetchController) {
         currentFetchController.abort();
       }
-      
+
       // Remove hover info div
       if (hoverInfoDiv && document.body.contains(hoverInfoDiv)) {
         document.body.removeChild(hoverInfoDiv);
       }
-      
+
       // Remove pulse animation style
-      const styleEl = document.getElementById('hover-pulse-animation');
+      const styleEl = document.getElementById("hover-pulse-animation");
       if (styleEl) {
         styleEl.remove();
       }
-      
+
       cancelAnimationFrame(animationId);
 
       scene.traverse((object) => {
@@ -2814,33 +2966,35 @@ export function ModelInfo() {
                 </span>
               </div>
 
-              {computePrediction && predictedToken !== "..." && !autoContinue && (
-                <Button
-                  onClick={handleContinue}
-                  size="sm"
-                  className="bg-amber-600 hover:bg-amber-700 text-white border-amber-500 h-7 px-3 text-xs"
-                  title="Continue generating: add predicted token to input"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="mr-1"
+              {computePrediction &&
+                predictedToken !== "..." &&
+                !autoContinue && (
+                  <Button
+                    onClick={handleContinue}
+                    size="sm"
+                    className="bg-amber-600 hover:bg-amber-700 text-white border-amber-500 h-7 px-3 text-xs"
+                    title="Continue generating: add predicted token to input"
                   >
-                    <polyline points="9 18 15 12 9 6" />
-                  </svg>
-                  Continue
-                </Button>
-              )}
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-1"
+                    >
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
+                    Continue
+                  </Button>
+                )}
             </div>
           </div>
-          
+
           {/* Auto-Generation Toggle */}
           <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-3 py-2">
             <div className="flex items-center gap-2">
@@ -2886,7 +3040,7 @@ export function ModelInfo() {
               {autoContinue ? "ON" : "OFF"}
             </Button>
           </div>
-          
+
           {/* Manual Mode Toggle */}
           <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-3 py-2">
             <div className="flex items-center gap-2">
@@ -2925,7 +3079,7 @@ export function ModelInfo() {
               {manualMode ? "ON" : "OFF"}
             </Button>
           </div>
-          
+
           <p className="text-xs text-zinc-500 italic">
             {manualMode
               ? "Manual mode: No AI explanations, detailed token visualization"
@@ -2941,11 +3095,10 @@ export function ModelInfo() {
   );
 }
 
-
 export default function TransformerSimulation() {
-  const { 
-    mountRef, 
-    aiMode, 
+  const {
+    mountRef,
+    aiMode,
     autoContinue,
     inputText,
     isPlaying,
@@ -2957,7 +3110,7 @@ export default function TransformerSimulation() {
     <div className="relative w-full h-screen bg-gray-900">
       {/* 3D Scene Canvas */}
       <div ref={mountRef} className="w-full h-full bg-zinc-900" />
-      
+
       {/* Generation Display - Shows input and generated text during auto-generation or manual mode */}
       {(autoContinue && isPlaying && !aiMode) || manualMode ? (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-6xl w-full px-4">
@@ -2966,12 +3119,14 @@ export default function TransformerSimulation() {
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm font-semibold text-green-400">
-                  {manualMode ? "Manual Mode - Token Visualization" : "Auto-Generating"}
+                  {manualMode
+                    ? "Manual Mode - Token Visualization"
+                    : "Auto-Generating"}
                 </span>
               </div>
               <div className="flex-1 h-px bg-linear-to-r from-green-500/50 to-transparent"></div>
             </div>
-            
+
             <div className="space-y-4">
               {manualMode ? (
                 <>
@@ -3001,7 +3156,7 @@ export default function TransformerSimulation() {
                       </div>
                     </div>
                   </div>
-                  
+
                   {/* Current Input Text */}
                   <div className="space-y-2">
                     <div className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
@@ -3030,13 +3185,12 @@ export default function TransformerSimulation() {
                 </>
               )}
             </div>
-            
+
             <div className="mt-4 flex items-center justify-between text-xs text-zinc-500">
               <span>
-                {manualMode 
-                  ? "Visualizing how the transformer processes tokens step by step" 
-                  : "Watching the transformer generate token by token"
-                }
+                {manualMode
+                  ? "Visualizing how the transformer processes tokens step by step"
+                  : "Watching the transformer generate token by token"}
               </span>
               <span className="flex items-center gap-1">
                 <span className="inline-block w-1 h-1 bg-zinc-500 rounded-full animate-pulse"></span>
@@ -3047,7 +3201,126 @@ export default function TransformerSimulation() {
           </div>
         </div>
       ) : null}
-      
+
+      {/* AI Mode / Manual Mode Toggle */}
+      <div className="absolute top-0 left-0 z-50">
+        <DraggableCard
+          initialPosition={{ x: window.innerWidth - 280, y: 80 }}
+          initialSize={{ width: 240, height: "auto" }}
+          minSize={{ width: 200, height: 80 }}
+          maxSize={{ width: 300, height: 150 }}
+        >
+          <CardContent className="px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn(
+                    "transition-colors",
+                    aiMode ? "text-purple-400" : "text-blue-400"
+                  )}
+                >
+                  {aiMode ? (
+                    <>
+                      <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.39 1 1.73V7a2 2 0 0 0 2 2h2a1 1 0 0 1 1 1v.73a2 2 0 1 0 2 0V10a3 3 0 0 0-3-3h-2a1 1 0 0 1-1-1V5.73A2 2 0 1 0 12 2Z" />
+                      <path d="M10 16a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" />
+                      <path d="M10 21.5V20" />
+                      <path d="M14 21.5V20" />
+                      <path d="M18 21.5V20" />
+                    </>
+                  ) : (
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                  )}
+                </svg>
+                <span className="text-sm font-semibold text-zinc-200">
+                  Mode
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={() => {
+                  useTransformerSimulation().toggleAIMode();
+                }}
+                size="sm"
+                variant={aiMode ? "default" : "outline"}
+                className={cn(
+                  "flex-1 h-8 text-xs transition-all",
+                  aiMode
+                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-500"
+                    : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                )}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.39 1 1.73V7a2 2 0 0 0 2 2h2a1 1 0 0 1 1 1v.73a2 2 0 1 0 2 0V10a3 3 0 0 0-3-3h-2a1 1 0 0 1-1-1V5.73A2 2 0 1 0 12 2Z" />
+                  <path d="M10 16a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" />
+                </svg>
+                AI Tutor
+              </Button>
+
+              <Button
+                onClick={() => {
+                  const context = useTransformerSimulation();
+                  if (aiMode) {
+                    context.toggleAIMode();
+                  }
+                }}
+                size="sm"
+                variant={!aiMode ? "default" : "outline"}
+                className={cn(
+                  "flex-1 h-8 text-xs transition-all",
+                  !aiMode
+                    ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
+                    : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                )}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1"
+                >
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+                Manual
+              </Button>
+            </div>
+
+            <p className="text-xs text-zinc-500 text-center">
+              {aiMode
+                ? "Interactive AI tutor for learning"
+                : "Explore the transformer step-by-step"}
+            </p>
+          </CardContent>
+        </DraggableCard>
+      </div>
+
       {aiMode && <SimpleAITutor />}
     </div>
   );
