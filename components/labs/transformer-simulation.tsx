@@ -201,7 +201,7 @@ export const TransformerSimulationProvider = ({
   const [speed, setSpeed] = useState(1.0);
   const [showAttentionWeights, setShowAttentionWeights] = useState(true);
   const [cameraFollowMode, setCameraFollowMode] = useState(true);
-  const [stepByStep, setStepByStep] = useState(true);
+  const [stepByStep, setStepByStep] = useState(false); // Default to continuous mode for manual mode
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [aiMode, setAIMode] = useState(true);
   const [predictedToken, setPredictedToken] = useState("sits");
@@ -256,7 +256,39 @@ export const TransformerSimulationProvider = ({
   const togglePlay = () => setIsPlaying(!isPlaying);
   const toggleAttentionWeights = () =>
     setShowAttentionWeights(!showAttentionWeights);
-  const toggleAIMode = () => setAIMode(!aiMode);
+  const toggleAIMode = () => {
+    const newAIMode = !aiMode;
+    setAIMode(newAIMode);
+
+    // Reset state when toggling AI mode
+    setIsPlaying(false);
+    setCurrentStep(0);
+    setComputePrediction(false);
+    setPredictedToken("...");
+    setGeneratedTokenCount(0);
+
+    // Reset intermediate values
+    setIntermediateValues({
+      embeddings: null,
+      qkvProjections: null,
+      attentionOutputs: null,
+      ffnOutputs: null,
+      finalLogits: null,
+      probabilities: null,
+      topPredictions: null,
+    });
+
+    // Set step-by-step mode based on AI mode
+    // AI mode: enable step-by-step control
+    // Manual mode: disable step-by-step (continuous)
+    setStepByStep(newAIMode);
+
+    // If entering AI mode, disable manual mode features
+    if (newAIMode) {
+      setManualMode(false);
+      setAutoContinue(false);
+    }
+  };
   const toggleCameraFollow = () => setCameraFollowMode(!cameraFollowMode);
   const toggleStepByStep = () => {
     setStepByStep(!stepByStep);
@@ -430,6 +462,11 @@ export const useTransformerSimulation = () => {
           // Reset to start the cycle again with the new input
           context.setComputePrediction(false);
           context.setCurrentStep(0);
+
+          // Ensure simulation is playing for auto-continue to work
+          if (!context.isPlaying && context.autoContinue) {
+            context.togglePlay();
+          }
 
           // Ensure stepByStep is off for auto-continue mode
           if (context.stepByStep) {
@@ -2046,7 +2083,7 @@ WHY: [why this is actually important and interesting]`;
         currentAnimStep = context.currentStep;
         stepProgress = 0;
         time += deltaTime * 0.5; // Keep time advancing for smooth animations
-      } else if (context.isPlaying) {
+      } else if (context.isPlaying || context.manualMode) {
         // Slow down animation speed by 0.5x when auto-continue is active for better viewing
         const speedMultiplier = context.autoContinue ? 0.5 : 1.0;
         time += deltaTime * context.speed * 2 * speedMultiplier;
@@ -2827,6 +2864,451 @@ WHY: [why this is actually important and interesting]`;
   return context;
 };
 
+// Manual Controls Component - Shows all manual control options
+function ManualControls() {
+  const {
+    speed,
+    setSpeed,
+    cameraFollowMode,
+    toggleCameraFollow,
+    maxTokens,
+    setMaxTokens,
+    manualMode,
+    setManualMode,
+    autoContinue,
+    setAutoContinue,
+    predictedToken,
+    computePrediction,
+    inputText,
+    setInputText,
+    setComputePrediction,
+    setCurrentStep,
+    generatedTokenCount,
+    setGeneratedTokenCount,
+    isPlaying,
+    togglePlay,
+  } = useTransformerSimulation();
+
+  const handleContinue = () => {
+    if (computePrediction && predictedToken && predictedToken !== "..." && generatedTokenCount < maxTokens) {
+      const newText = inputText + predictedToken;
+      setInputText(newText);
+      setGeneratedTokenCount(generatedTokenCount + 1);
+      setComputePrediction(false);
+      setCurrentStep(0);
+    }
+  };
+
+  const handleAutoContinueToggle = () => {
+    const newAutoContinue = !autoContinue;
+    setAutoContinue(newAutoContinue);
+    
+    // If enabling auto-continue, ensure simulation is playing
+    if (newAutoContinue && !isPlaying) {
+      togglePlay();
+    }
+  };
+
+  return (
+    <DraggableCard
+      initialPosition={{ x: 20, y: 80 }}
+      initialSize={{ width: 280, height: "auto" }}
+      minSize={{ width: 240, height: 180 }}
+      maxSize={{ width: 380, height: 600 }}
+    >
+      <CardContent className="px-3 py-3 space-y-2">
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-blue-400"
+            >
+              <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+            </svg>
+            Manual Controls
+          </h3>
+        </div>
+
+        <div className="h-px bg-linear-to-r from-blue-500/50 via-purple-500/50 to-transparent" />
+
+        {/* Simulation Play/Pause Control */}
+        <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 hover:bg-zinc-800/80 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn(
+                  "transition-colors",
+                  isPlaying ? "text-green-400" : "text-zinc-500"
+                )}
+              >
+                {isPlaying ? (
+                  <>
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </>
+                ) : (
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                )}
+              </svg>
+              <span className="text-xs font-medium text-zinc-200">
+                Simulation
+              </span>
+            </div>
+            <button
+              onClick={togglePlay}
+              className={cn(
+                "relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200",
+                isPlaying ? "bg-green-600" : "bg-zinc-700"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform duration-200",
+                  isPlaying ? "translate-x-4" : "translate-x-1"
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Camera Follow Toggle */}
+        <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 hover:bg-zinc-800/80 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn(
+                  "transition-colors",
+                  cameraFollowMode ? "text-green-400" : "text-zinc-500"
+                )}
+              >
+                <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span className="text-xs font-medium text-zinc-200">
+                Camera Follow
+              </span>
+            </div>
+            <button
+              onClick={() => toggleCameraFollow()}
+              className={cn(
+                "relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200",
+                cameraFollowMode ? "bg-green-600" : "bg-zinc-700"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform duration-200",
+                  cameraFollowMode ? "translate-x-4" : "translate-x-1"
+                )}
+              />
+            </button>
+          </div>
+        </div>
+
+        {/* Animation Speed Control */}
+        <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 space-y-1.5 hover:bg-zinc-800/80 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-orange-400"
+              >
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
+              <span className="text-xs font-medium text-zinc-200">
+                Speed
+              </span>
+            </div>
+            <span className="text-xs font-mono text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">
+              {speed.toFixed(1)}x
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={() => setSpeed(Math.max(0.1, speed - 0.1))}
+              size="sm"
+              variant="outline"
+              className="h-6 w-6 px-0 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600 text-xs"
+              disabled={speed <= 0.1}
+            >
+              -
+            </Button>
+            <div className="flex-1 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-linear-to-r from-orange-600 to-orange-400 rounded-full transition-all duration-300"
+                style={{ width: `${(speed / 3) * 100}%` }}
+              />
+            </div>
+            <Button
+              onClick={() => setSpeed(Math.min(3.0, speed + 0.1))}
+              size="sm"
+              variant="outline"
+              className="h-6 w-6 px-0 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600 text-xs"
+              disabled={speed >= 3.0}
+            >
+              +
+            </Button>
+          </div>
+        </div>
+
+        {/* Max Tokens Control */}
+        <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 space-y-1.5 hover:bg-zinc-800/80 transition-all">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-purple-400"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14,2 14,8 20,8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+              </svg>
+              <span className="text-xs font-medium text-zinc-200">
+                Max Tokens
+              </span>
+            </div>
+            <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">
+              {generatedTokenCount}/{maxTokens}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Button
+              onClick={() => setMaxTokens(Math.max(1, maxTokens - 1))}
+              size="sm"
+              variant="outline"
+              className="h-6 w-6 px-0 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600 text-xs"
+              disabled={maxTokens <= 1}
+            >
+              -
+            </Button>
+            <div className="flex-1 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-linear-to-r from-purple-600 to-purple-400 rounded-full transition-all duration-300"
+                style={{ width: `${(maxTokens / 50) * 100}%` }}
+              />
+            </div>
+            <Button
+              onClick={() => setMaxTokens(Math.min(50, maxTokens + 1))}
+              size="sm"
+              variant="outline"
+              className="h-6 w-6 px-0 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600 text-xs"
+              disabled={maxTokens >= 50}
+            >
+              +
+            </Button>
+          </div>
+        </div>
+
+        <div className="h-px bg-zinc-800" />
+
+        {/* Generation Mode Toggles */}
+        <div className="space-y-1.5">
+          <h4 className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
+            Generation Mode
+          </h4>
+
+          {/* Auto-Generate Toggle */}
+          <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 hover:bg-zinc-800/80 transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn(
+                    "transition-colors",
+                    autoContinue ? "text-green-400" : "text-zinc-500"
+                  )}
+                >
+                  <path d="M12 2v4" />
+                  <path d="m16.2 7.8 2.9-2.9" />
+                  <path d="M18 12h4" />
+                  <path d="m16.2 16.2 2.9 2.9" />
+                  <path d="M12 18v4" />
+                  <path d="m4.9 19.1 2.9-2.9" />
+                  <path d="M2 12h4" />
+                  <path d="m4.9 4.9 2.9 2.9" />
+                </svg>
+                <span className="text-xs font-medium text-zinc-200">
+                  Auto-Generate
+                </span>
+              </div>
+              <button
+                onClick={handleAutoContinueToggle}
+                className={cn(
+                  "relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200",
+                  autoContinue ? "bg-green-600" : "bg-zinc-700"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform duration-200",
+                    autoContinue ? "translate-x-4" : "translate-x-1"
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Manual Mode Toggle */}
+          <div className="bg-zinc-800/60 rounded-lg px-2.5 py-2 hover:bg-zinc-800/80 transition-all">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={cn(
+                    "transition-colors",
+                    manualMode ? "text-blue-400" : "text-zinc-500"
+                  )}
+                >
+                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
+                </svg>
+                <span className="text-xs font-medium text-zinc-200">
+                  Token Viz Mode
+                </span>
+              </div>
+              <button
+                onClick={() => setManualMode(!manualMode)}
+                className={cn(
+                  "relative inline-flex h-4 w-8 items-center rounded-full transition-colors duration-200",
+                  manualMode ? "bg-blue-600" : "bg-zinc-700"
+                )}
+              >
+                <span
+                  className={cn(
+                    "inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform duration-200",
+                    manualMode ? "translate-x-4" : "translate-x-1"
+                  )}
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Single Token Generation Button */}
+        {!autoContinue && (
+          <>
+            <div className="h-px bg-zinc-800" />
+            <div>
+              <Button
+                onClick={handleContinue}
+                disabled={!predictedToken || predictedToken === "..." || generatedTokenCount >= maxTokens}
+                size="sm"
+                className={cn(
+                  "w-full h-7 text-xs font-medium transition-all",
+                  predictedToken && predictedToken !== "..." && generatedTokenCount < maxTokens
+                    ? "bg-linear-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white border-0 shadow-lg shadow-amber-500/20"
+                    : "bg-zinc-700 text-zinc-500 border-zinc-600 cursor-not-allowed"
+                )}
+                title={generatedTokenCount >= maxTokens ? `Maximum tokens (${maxTokens}) reached` : "Generate one token at a time"}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mr-1.5"
+                >
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+                Generate Next Token
+              </Button>
+              {generatedTokenCount >= maxTokens && (
+                <p className="text-[10px] text-amber-400 mt-1.5 text-center">
+                  Maximum tokens reached ({generatedTokenCount}/{maxTokens})
+                </p>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Status Info */}
+        <div className="bg-linear-to-r from-zinc-800/60 to-zinc-800/30 rounded-lg px-2.5 py-1.5">
+          <p className="text-[10px] text-zinc-400 leading-relaxed">
+            {autoContinue ? (
+              <span className="flex items-center gap-1">
+                <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                Auto-generation active
+              </span>
+            ) : manualMode ? (
+              <span className="flex items-center gap-1">
+                <span className="w-1 h-1 bg-blue-500 rounded-full" />
+                Token visualization enabled
+              </span>
+            ) : (
+              <span className="flex items-center gap-1">
+                <span className="w-1 h-1 bg-zinc-500 rounded-full" />
+                Manual control mode
+              </span>
+            )}
+          </p>
+        </div>
+      </CardContent>
+    </DraggableCard>
+  );
+}
+
 export function ModelInfo() {
   const {
     transformerModel,
@@ -2837,18 +3319,24 @@ export function ModelInfo() {
     setInputText,
     setComputePrediction,
     setCurrentStep,
+    speed,
+    setSpeed,
+    cameraFollowMode,
+    toggleCameraFollow,
     generatedTokenCount,
     setGeneratedTokenCount,
     autoContinue,
     setAutoContinue,
     manualMode,
     setManualMode,
+    maxTokens,
+    setMaxTokens,
   } = useTransformerSimulation();
 
   if (aiMode) return null;
 
   const handleContinue = () => {
-    if (computePrediction && predictedToken && predictedToken !== "...") {
+    if (computePrediction && predictedToken && predictedToken !== "..." && generatedTokenCount < maxTokens) {
       // Append predicted token to input text
       const newText = inputText + predictedToken;
       setInputText(newText);
@@ -2879,17 +3367,17 @@ export function ModelInfo() {
   return (
     <DraggableCard
       initialPosition={{ x: 1520, y: 50 }}
-      initialSize={{ width: 360, height: "auto" }}
-      minSize={{ width: 300, height: 150 }}
+      initialSize={{ width: 300, height: "auto" }}
+      minSize={{ width: 260, height: 150 }}
       maxSize={{ width: 500, height: 500 }}
     >
-      <CardContent className="px-4 py-4 space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+      <CardContent className="px-3 py-3 space-y-3">
+        <div className="space-y-1.5">
+          <h3 className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
+              width="14"
+              height="14"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -2910,7 +3398,7 @@ export function ModelInfo() {
             </svg>
             Model Architecture
           </h3>
-          <div className="bg-zinc-800/60 rounded-md px-3 py-2 space-y-1 text-xs font-mono">
+          <div className="bg-zinc-800/60 rounded-md px-2.5 py-1.5 space-y-0.5 text-[10px] font-mono">
             <div className="flex justify-between text-zinc-300">
               <span>Parameters:</span>
               <span className="text-cyan-400">
@@ -2938,27 +3426,27 @@ export function ModelInfo() {
 
         <div className="border-t border-zinc-800" />
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+        <div className="space-y-1.5">
+          <h3 className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5">
             Predicted Next Token
             {!computePrediction && (
-              <span className="text-xs text-zinc-500">(waiting...)</span>
+              <span className="text-[10px] text-zinc-500">(waiting...)</span>
             )}
           </h3>
           <div
             className={cn(
-              "border rounded-md px-3 py-3 transition-all duration-300",
+              "border rounded-md px-2.5 py-2 transition-all duration-300",
               computePrediction
                 ? "bg-linear-to-r from-amber-500/20 to-orange-500/20 border-amber-500/30"
                 : "bg-zinc-800/60 border-zinc-700"
             )}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400">Token:</span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-zinc-400">Token:</span>
                 <span
                   className={cn(
-                    "text-lg font-bold",
+                    "text-base font-bold",
                     computePrediction ? "text-amber-400" : "text-zinc-600"
                   )}
                 >
@@ -2972,13 +3460,13 @@ export function ModelInfo() {
                   <Button
                     onClick={handleContinue}
                     size="sm"
-                    className="bg-amber-600 hover:bg-amber-700 text-white border-amber-500 h-7 px-3 text-xs"
+                    className="bg-amber-600 hover:bg-amber-700 text-white border-amber-500 h-6 px-2 text-[10px]"
                     title="Continue generating: add predicted token to input"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
+                      width="12"
+                      height="12"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -2996,12 +3484,12 @@ export function ModelInfo() {
           </div>
 
           {/* Auto-Generation Toggle */}
-          <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-3 py-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -3022,7 +3510,7 @@ export function ModelInfo() {
                 <path d="M2 12h4" />
                 <path d="m4.9 4.9 2.9 2.9" />
               </svg>
-              <span className="text-xs font-medium text-zinc-300">
+              <span className="text-[10px] font-medium text-zinc-300">
                 Auto-Generate
               </span>
             </div>
@@ -3031,7 +3519,7 @@ export function ModelInfo() {
               size="sm"
               variant={autoContinue ? "default" : "outline"}
               className={cn(
-                "h-6 px-2 text-xs transition-all",
+                "h-5 px-1.5 text-[10px] transition-all",
                 autoContinue
                   ? "bg-green-600 hover:bg-green-700 text-white border-green-500"
                   : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
@@ -3042,12 +3530,12 @@ export function ModelInfo() {
           </div>
 
           {/* Manual Mode Toggle */}
-          <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-3 py-2">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
-                width="14"
-                height="14"
+                width="12"
+                height="12"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -3061,7 +3549,7 @@ export function ModelInfo() {
               >
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
               </svg>
-              <span className="text-xs font-medium text-zinc-300">
+              <span className="text-[10px] font-medium text-zinc-300">
                 Manual Mode
               </span>
             </div>
@@ -3070,7 +3558,7 @@ export function ModelInfo() {
               size="sm"
               variant={manualMode ? "default" : "outline"}
               className={cn(
-                "h-6 px-2 text-xs transition-all",
+                "h-5 px-1.5 text-[10px] transition-all",
                 manualMode
                   ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
                   : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
@@ -3080,14 +3568,203 @@ export function ModelInfo() {
             </Button>
           </div>
 
-          <p className="text-xs text-zinc-500 italic">
-            {manualMode
-              ? "Manual mode: No AI explanations, detailed token visualization"
-              : autoContinue
-              ? "Auto-generation enabled - tokens will generate continuously"
-              : computePrediction
-              ? "Click Continue to add predicted token to input and generate more"
-              : "Prediction runs after simulation completes (Step 6)"}
+          {/* Camera Follow Toggle */}
+          <div className="flex items-center justify-between bg-zinc-800/60 rounded-md px-2.5 py-1.5">
+            <div className="flex items-center gap-1.5">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className={cn(
+                  "transition-colors",
+                  cameraFollowMode ? "text-green-400" : "text-zinc-500"
+                )}
+              >
+                <path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h1.586a1 1 0 0 1 .707.293l.707.707A1 1 0 0 0 13.414 11H15a2 2 0 0 1 2 2v1.172a2 2 0 0 1-.586 1.414l-.707.707A1 1 0 0 0 15.414 17H17a2 2 0 0 1 2 2v2" />
+                <path d="M3 3l18 18" />
+                <circle cx="9" cy="9" r="2" />
+              </svg>
+              <span className="text-[10px] font-medium text-zinc-300">
+                Camera Follow
+              </span>
+            </div>
+            <Button
+              onClick={() => toggleCameraFollow()}
+              size="sm"
+              variant={cameraFollowMode ? "default" : "outline"}
+              className={cn(
+                "h-5 px-1.5 text-[10px] transition-all",
+                cameraFollowMode
+                  ? "bg-green-600 hover:bg-green-700 text-white border-green-500"
+                  : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+              )}
+            >
+              {cameraFollowMode ? "ON" : "OFF"}
+            </Button>
+          </div>
+
+          {/* Animation Speed Control */}
+          <div className="bg-zinc-800/60 rounded-md px-2.5 py-1.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-orange-400"
+                >
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+                <span className="text-[10px] font-medium text-zinc-300">
+                  Speed
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-400">{speed.toFixed(1)}x</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => setSpeed(Math.max(0.1, speed - 0.1))}
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                disabled={speed <= 0.1}
+              >
+                -
+              </Button>
+              <div className="flex-1 bg-zinc-700 rounded h-1.5">
+                <div
+                  className="bg-orange-500 h-1.5 rounded transition-all duration-200"
+                  style={{ width: `${(speed / 3) * 100}%` }}
+                />
+              </div>
+              <Button
+                onClick={() => setSpeed(Math.min(3.0, speed + 0.1))}
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                disabled={speed >= 3.0}
+              >
+                +
+              </Button>
+            </div>
+          </div>
+
+          {/* Max Tokens Control */}
+          <div className="bg-zinc-800/60 rounded-md px-2.5 py-1.5 space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-purple-400"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                  <polyline points="14,2 14,8 20,8" />
+                  <line x1="16" y1="13" x2="8" y2="13" />
+                  <line x1="16" y1="17" x2="8" y2="17" />
+                  <polyline points="10,9 9,9 8,9" />
+                </svg>
+                <span className="text-[10px] font-medium text-zinc-300">
+                  Max Tokens
+                </span>
+              </div>
+              <span className="text-[10px] text-zinc-400">{maxTokens}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                onClick={() => setMaxTokens(Math.max(1, maxTokens - 1))}
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                disabled={maxTokens <= 1}
+              >
+                -
+              </Button>
+              <div className="flex-1 bg-zinc-700 rounded h-1.5">
+                <div
+                  className="bg-purple-500 h-1.5 rounded transition-all duration-200"
+                  style={{ width: `${(maxTokens / 50) * 100}%` }}
+                />
+              </div>
+              <Button
+                onClick={() => setMaxTokens(Math.min(50, maxTokens + 1))}
+                size="sm"
+                variant="outline"
+                className="h-5 px-1.5 text-[10px] bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                disabled={maxTokens >= 50}
+              >
+                +
+              </Button>
+            </div>
+          </div>
+
+          {/* Single Token Generation */}
+          <div className="bg-zinc-800/60 rounded-md px-2.5 py-1.5">
+            <Button
+              onClick={() => {
+                if (predictedToken && predictedToken !== "..." && !autoContinue && generatedTokenCount < maxTokens) {
+                  handleContinue();
+                }
+              }}
+              disabled={!predictedToken || predictedToken === "..." || autoContinue || generatedTokenCount >= maxTokens}
+              size="sm"
+              className={cn(
+                "w-full h-6 text-[10px] transition-all",
+                predictedToken && predictedToken !== "..." && !autoContinue && generatedTokenCount < maxTokens
+                  ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-500"
+                  : "bg-zinc-700 text-zinc-500 border-zinc-600 cursor-not-allowed"
+              )}
+              title={generatedTokenCount >= maxTokens ? `Maximum tokens (${maxTokens}) reached` : "Generate one token at a time"}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              Generate Next Token {generatedTokenCount >= maxTokens && `(${generatedTokenCount}/${maxTokens})`}
+            </Button>
+          </div>
+
+          <p className="text-[10px] text-zinc-500 italic">
+            {generatedTokenCount >= maxTokens ? (
+              `Maximum tokens reached (${generatedTokenCount}/${maxTokens}). Reset to generate more.`
+            ) : manualMode ? (
+              "Manual mode: No AI explanations, detailed token visualization"
+            ) : autoContinue ? (
+              "Auto-generation enabled - tokens will generate continuously"
+            ) : computePrediction ? (
+              "Click Continue to add predicted token to input and generate more"
+            ) : (
+              "Prediction runs after simulation completes (Step 6)"
+            )}
           </p>
         </div>
       </CardContent>
@@ -3104,6 +3781,7 @@ export default function TransformerSimulation() {
     isPlaying,
     manualMode,
     tokenizedInput,
+    toggleAIMode,
   } = useTransformerSimulation();
 
   return (
@@ -3111,8 +3789,8 @@ export default function TransformerSimulation() {
       {/* 3D Scene Canvas */}
       <div ref={mountRef} className="w-full h-full bg-zinc-900" />
 
-      {/* Generation Display - Shows input and generated text during auto-generation or manual mode */}
-      {(autoContinue && isPlaying && !aiMode) || manualMode ? (
+      {/* Generation Display - Shows input and generated text during auto-generation or manual mode - ONLY in manual mode, not AI mode */}
+      {!aiMode && ((autoContinue && isPlaying) || manualMode) ? (
         <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 max-w-6xl w-full px-4">
           <div className="bg-linear-to-r from-zinc-900/95 to-zinc-800/95 backdrop-blur-md rounded-xl border border-zinc-700/50 shadow-2xl p-6">
             <div className="flex items-center gap-3 mb-4">
@@ -3202,124 +3880,53 @@ export default function TransformerSimulation() {
         </div>
       ) : null}
 
-      {/* AI Mode / Manual Mode Toggle */}
-      <div className="absolute top-0 left-0 z-50">
-        <DraggableCard
-          initialPosition={{ x: window.innerWidth - 280, y: 80 }}
-          initialSize={{ width: 240, height: "auto" }}
-          minSize={{ width: 200, height: 80 }}
-          maxSize={{ width: 300, height: 150 }}
-        >
-          <CardContent className="px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className={cn(
-                    "transition-colors",
-                    aiMode ? "text-purple-400" : "text-blue-400"
-                  )}
-                >
-                  {aiMode ? (
-                    <>
-                      <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.39 1 1.73V7a2 2 0 0 0 2 2h2a1 1 0 0 1 1 1v.73a2 2 0 1 0 2 0V10a3 3 0 0 0-3-3h-2a1 1 0 0 1-1-1V5.73A2 2 0 1 0 12 2Z" />
-                      <path d="M10 16a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" />
-                      <path d="M10 21.5V20" />
-                      <path d="M14 21.5V20" />
-                      <path d="M18 21.5V20" />
-                    </>
-                  ) : (
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                  )}
-                </svg>
-                <span className="text-sm font-semibold text-zinc-200">
-                  Mode
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => {
-                  useTransformerSimulation().toggleAIMode();
-                }}
-                size="sm"
-                variant={aiMode ? "default" : "outline"}
+      {/* AI Mode Toggle - Simple Switch */}
+      <div className="absolute top-6 right-6 z-50">
+        <div className="bg-zinc-900/95 backdrop-blur-md rounded-lg border border-zinc-700/50 shadow-lg px-4 py-3">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-zinc-300">
+              AI Tutor Mode
+            </span>
+            <button
+              onClick={toggleAIMode}
+              className={cn(
+                "relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-zinc-900",
+                aiMode ? "bg-purple-600" : "bg-zinc-700"
+              )}
+              role="switch"
+              aria-checked={aiMode}
+            >
+              <span
                 className={cn(
-                  "flex-1 h-8 text-xs transition-all",
-                  aiMode
-                    ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-500"
-                    : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
+                  "inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-300",
+                  aiMode ? "translate-x-6" : "translate-x-1"
                 )}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-1"
-                >
-                  <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.39 1 1.73V7a2 2 0 0 0 2 2h2a1 1 0 0 1 1 1v.73a2 2 0 1 0 2 0V10a3 3 0 0 0-3-3h-2a1 1 0 0 1-1-1V5.73A2 2 0 1 0 12 2Z" />
-                  <path d="M10 16a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" />
-                </svg>
-                AI Tutor
-              </Button>
-
-              <Button
-                onClick={() => {
-                  const context = useTransformerSimulation();
-                  if (aiMode) {
-                    context.toggleAIMode();
-                  }
-                }}
-                size="sm"
-                variant={!aiMode ? "default" : "outline"}
-                className={cn(
-                  "flex-1 h-8 text-xs transition-all",
-                  !aiMode
-                    ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-500"
-                    : "bg-zinc-700 hover:bg-zinc-600 text-zinc-300 border-zinc-600"
-                )}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="mr-1"
-                >
-                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-                </svg>
-                Manual
-              </Button>
-            </div>
-
-            <p className="text-xs text-zinc-500 text-center">
-              {aiMode
-                ? "Interactive AI tutor for learning"
-                : "Explore the transformer step-by-step"}
-            </p>
-          </CardContent>
-        </DraggableCard>
+              />
+            </button>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={cn(
+                "transition-colors",
+                aiMode ? "text-purple-400" : "text-zinc-500"
+              )}
+            >
+              <path d="M12 2a2 2 0 0 0-2 2c0 .74.4 1.39 1 1.73V7a2 2 0 0 0 2 2h2a1 1 0 0 1 1 1v.73a2 2 0 1 0 2 0V10a3 3 0 0 0-3-3h-2a1 1 0 0 1-1-1V5.73A2 2 0 1 0 12 2Z" />
+              <path d="M10 16a2 2 0 1 0-4 0 2 2 0 0 0 4 0Z" />
+            </svg>
+          </div>
+        </div>
       </div>
+
+      {/* Manual Controls - Only show when AI mode is OFF */}
+      {!aiMode && <ManualControls />}
 
       {aiMode && <SimpleAITutor />}
     </div>
