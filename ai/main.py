@@ -29,7 +29,7 @@ async def get_audio(text: str):
     """
     Serve generated tts audio file based on input text
     """
-    
+    # Generate audio file from text
     
     file_path = AUDIO_DIR / filename
 
