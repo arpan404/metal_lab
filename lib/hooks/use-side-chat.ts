@@ -81,7 +81,7 @@ export function useSideChat(labUID: string, isOpen: boolean, experimentDetails: 
     try {
       const experimentInfo = {
         role: "system",
-        content: `Experiment Name: ${experimentDetails.name}\nDescription: ${experimentDetails.description}\nCurrent State: ${JSON.stringify(experimentDetails.currentState)}\nVariables: ${JSON.stringify(experimentDetails.variables)}`,
+        content: `Name: ${experimentDetails.name}\nDescription: ${experimentDetails.description}\nCurrent State: ${JSON.stringify(experimentDetails.currentState)}\nVariables: ${JSON.stringify(experimentDetails.variables)}`,
       };
       const response = await fetch("/api/ai/chat", {
         method: "POST",

@@ -1,6 +1,6 @@
 "use client";
 import * as THREE from "three";
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, use, useCallback } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -14,6 +14,10 @@ import {
   tokenize,
   VOCABULARY,
 } from "@/lib/tiny-transformer";
+import { ArrowRightIcon } from "lucide-react";
+import { start } from "repl";
+import { set } from "@elevenlabs/elevenlabs-js/core/schemas";
+import { SimpleAITutor } from "./ai-tutor-simple";
 
 type TransformerSimulationContext = {
   isPlaying: boolean;
@@ -105,21 +109,21 @@ export const TransformerSimulationProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [inputText, setInputText] = useState("The cat");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [inputText, setInputText] = useState("Hello");
   const [currentStep, setCurrentStep] = useState(0);
-  const [speed, setSpeed] = useState(0.5);
+  const [speed, setSpeed] = useState(1.0);
   const [showAttentionWeights, setShowAttentionWeights] = useState(true);
   const [cameraFollowMode, setCameraFollowMode] = useState(true);
-  const [stepByStep, setStepByStep] = useState(false);
+  const [stepByStep, setStepByStep] = useState(true);
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const [aiMode, setAIMode] = useState(false);
+  const [aiMode, setAIMode] = useState(true);
   const [predictedToken, setPredictedToken] = useState("sits");
   const [tokenizedInput, setTokenizedInput] = useState<
     Array<{ token: string; id: number; gptId: number }>
   >([]);
   const [computePrediction, setComputePrediction] = useState(false);
-  const [autoContinue, setAutoContinue] = useState(false);
+  const [autoContinue, setAutoContinue] = useState(true);
   const [maxTokens, setMaxTokens] = useState(10);
   const [generatedTokenCount, setGeneratedTokenCount] = useState(0);
   const [stateOfSimulation, setStateOfSimulation] = useState<{
@@ -265,7 +269,6 @@ export const useTransformerSimulation = () => {
     try {
       const tokenIds = context.tokenizedInput.map((t) => t.id);
       const result = context.transformerModel.forward(tokenIds);
-      context.setPredictedToken(result.predictedGptToken);
 
       // Store intermediate values for visualization
       const model = context.transformerModel;
@@ -285,6 +288,9 @@ export const useTransformerSimulation = () => {
           id,
         }));
 
+      // Use the top prediction from custom vocabulary (not GPT token)
+      context.setPredictedToken(topPredictions[0]?.token || "...");
+
       context.setIntermediateValues({
         embeddings: model.embeddings?.data || null,
         qkvProjections: model.qkvProjections.map((qkv) => ({
@@ -300,25 +306,24 @@ export const useTransformerSimulation = () => {
         topPredictions,
       });
 
-      console.log("Prediction computed:", {
-        input: context.tokenizedInput,
-        prediction: result.predictedGptToken,
-        tokenId: result.predictedTokenId,
-        probability: result.probabilities[result.predictedTokenId],
-        topPredictions,
-      });
-
       // Auto-continue if enabled and under max tokens
+      const topToken = topPredictions[0]?.token;
       if (
         context.autoContinue &&
         context.generatedTokenCount < context.maxTokens &&
-        result.predictedGptToken &&
-        result.predictedGptToken !== "..." &&
-        result.predictedGptToken !== "<|endoftext|>"
+        topToken &&
+        topToken !== "..." &&
+        topToken !== "<|endoftext|>"
       ) {
         // Wait a moment for the animation, then continue
         setTimeout(() => {
-          const newText = context.inputText + result.predictedGptToken;
+          const newText = context.inputText + topToken;
+          console.log(
+            "Auto-continuing with token:",
+            topToken,
+            "New text:",
+            newText
+          );
           context.setInputText(newText);
           context.setGeneratedTokenCount(context.generatedTokenCount + 1);
           context.setComputePrediction(false);
@@ -394,87 +399,14 @@ export const useTransformerSimulation = () => {
     gridHelper.position.y = -0.1;
     // scene.add(gridHelper);
 
-    // Tokenize input using simple vocabulary mapping
-    const vocabulary = [
-      "the",
-      "cat",
-      "dog",
-      "sits",
-      "runs",
-      "on",
-      "mat",
-      "is",
-      "a",
-      "walks",
-      "jumps",
-      "sleeps",
-      "eats",
-      "big",
-      "small",
-      "red",
-      "blue",
-      "quick",
-      "lazy",
-      "brown",
-      "fox",
-      "bird",
-      "tree",
-      "house",
-      "fast",
-      "slow",
-      "happy",
-      "sad",
-      "good",
-      "bad",
-      "over",
-      "under",
-      "near",
-      "far",
-      "up",
-      "down",
-      "left",
-      "right",
-      "here",
-      "there",
-      "now",
-      "then",
-      "when",
-      "where",
-      "why",
-      "how",
-      "who",
-      "what",
-      "which",
-      "meows",
-    ];
+    // Tokenize input using custom HuggingFace BPE tokenizer for visualization
+    const { tokens: tokenIds, originalTokens } = tokenize(context.inputText);
 
-    let tokens = context.inputText
-      .toLowerCase()
-      .split(/\s+/)
-      .filter((t) => t.length > 0);
-    tokens = tokens.slice(0, 5); // Limit to 5 tokens
-
-    // Map tokens to IDs
-    let tokenIds = tokens.map((token) => {
-      const idx = vocabulary.indexOf(token);
-      return idx >= 0 ? idx : 0; // Default to "the" if unknown
-    });
-
-    // Run transformer model to get prediction
-    let modelPrediction = "sits";
-    if (context.transformerModel && tokenIds.length > 0) {
-      try {
-        const result = context.transformerModel.forward(tokenIds);
-        modelPrediction = result.predictedToken;
-        context.setPredictedToken(modelPrediction);
-      } catch (error) {
-        console.error("Model forward pass error:", error);
-      }
-    }
+    // Get token texts for visualization (limit to last 6 tokens for display)
+    const displayTokens = originalTokens.slice(-6);
+    const tokens = displayTokens.map((t) => t.text);
 
     const numTokens = tokens.length || 1;
-    const embeddingDim = 512;
-    const numHeads = 8;
 
     // Layout configuration - HORIZONTAL
     const tokenObjects: THREE.Group[] = [];
@@ -504,23 +436,25 @@ export const useTransformerSimulation = () => {
 
     // Predicted next token (from the model)
     let predictedToken: THREE.Group | null = null;
-    let currentPrediction = modelPrediction;
+    let currentPrediction = context.predictedToken || "...";
 
-    // Helper function to create stage labels
+    // Helper function to create stage labels (using cache)
     function createStageLabel(text: string, position: THREE.Vector3) {
-      const canvas = document.createElement("canvas");
-      const context = canvas.getContext("2d");
-      if (!context) return null;
+      const cacheKey = `stage_label_${text}`;
+      const texture = getCachedTexture(cacheKey, () => {
+        const canvas = getPooledCanvas(128, 32);
+        const context = canvas.getContext("2d");
+        if (!context) return canvas;
 
-      canvas.width = 128;
-      canvas.height = 32;
-      context.fillStyle = "rgba(255, 255, 255, 0.9)";
-      context.font = "bold 14px Arial";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-      context.fillText(text, 64, 16);
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "rgba(255, 255, 255, 0.9)";
+        context.font = "bold 14px Arial";
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(text, 64, 16);
+        return canvas;
+      });
 
-      const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
@@ -532,10 +466,47 @@ export const useTransformerSimulation = () => {
     }
 
     // Shared geometries and materials for better performance
-    const sharedSphereGeometry = new THREE.SphereGeometry(0.3, 8, 8); // Further reduced
+    const sharedSphereGeometry = new THREE.SphereGeometry(0.3, 8, 8);
     const sharedBoxGeometry = new THREE.BoxGeometry(0.8, 1.5, 0.3);
 
-    // Create input tokens as text labels
+    // Canvas cache for reusable textures
+    const canvasCache = new Map<string, THREE.CanvasTexture>();
+    const canvasPool: HTMLCanvasElement[] = [];
+
+    function getPooledCanvas(width: number, height: number): HTMLCanvasElement {
+      for (let i = 0; i < canvasPool.length; i++) {
+        const canvas = canvasPool[i];
+        if (canvas.width === width && canvas.height === height) {
+          canvasPool.splice(i, 1);
+          return canvas;
+        }
+      }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      return canvas;
+    }
+
+    function returnCanvasToPool(canvas: HTMLCanvasElement) {
+      if (canvasPool.length < 20) {
+        // Limit pool size
+        canvasPool.push(canvas);
+      }
+    }
+
+    function getCachedTexture(
+      key: string,
+      createFn: () => HTMLCanvasElement
+    ): THREE.CanvasTexture {
+      if (!canvasCache.has(key)) {
+        const canvas = createFn();
+        const texture = new THREE.CanvasTexture(canvas);
+        canvasCache.set(key, texture);
+      }
+      return canvasCache.get(key)!;
+    }
+
+    // Create input tokens as text labels (using cache)
     function createToken(text: string, position: THREE.Vector3, index: number) {
       const group = new THREE.Group();
 
@@ -558,18 +529,20 @@ export const useTransformerSimulation = () => {
       const sphere = new THREE.Mesh(sharedSphereGeometry, material);
       group.add(sphere);
 
-      // Label
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d")!;
-      canvas.width = 128;
-      canvas.height = 64;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 32px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(text, 64, 32);
+      // Label (using cache)
+      const cacheKey = `token_${text}`;
+      const texture = getCachedTexture(cacheKey, () => {
+        const canvas = getPooledCanvas(128, 64);
+        const ctx = canvas.getContext("2d")!;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 32px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(text, 64, 32);
+        return canvas;
+      });
 
-      const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
@@ -641,18 +614,20 @@ export const useTransformerSimulation = () => {
         const mesh = new THREE.Mesh(qkvGeometry, material);
         mesh.position.x = (i - 1) * spacing;
 
-        // Add label
-        const canvas = document.createElement("canvas");
-        const ctx = canvas.getContext("2d")!;
-        canvas.width = 64;
-        canvas.height = 64;
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 48px Arial";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(labels[i], 32, 32);
+        // Add label (using cache)
+        const cacheKey = `qkv_${labels[i]}`;
+        const texture = getCachedTexture(cacheKey, () => {
+          const canvas = getPooledCanvas(64, 64);
+          const ctx = canvas.getContext("2d")!;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 48px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(labels[i], 32, 32);
+          return canvas;
+        });
 
-        const texture = new THREE.CanvasTexture(canvas);
         const spriteMaterial = new THREE.SpriteMaterial({
           map: texture,
           transparent: true,
@@ -708,7 +683,7 @@ export const useTransformerSimulation = () => {
       return group;
     }
 
-    // Create Feed-Forward Network block
+    // Create Feed-Forward Network block (using cache)
     function createFFNBlock(position: THREE.Vector3, index: number) {
       const geometry = new THREE.BoxGeometry(1.2, 2.5, 0.5);
       const material = new THREE.MeshStandardMaterial({
@@ -723,18 +698,20 @@ export const useTransformerSimulation = () => {
       const mesh = new THREE.Mesh(geometry, material);
       mesh.position.copy(position);
 
-      // Add label
-      const canvas = document.createElement("canvas");
-      const ctx = canvas.getContext("2d")!;
-      canvas.width = 128;
-      canvas.height = 64;
-      ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 32px Arial";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("FFN", 64, 32);
+      // Add label (using cache)
+      const cacheKey = "ffn_label";
+      const texture = getCachedTexture(cacheKey, () => {
+        const canvas = getPooledCanvas(128, 64);
+        const ctx = canvas.getContext("2d")!;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 32px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("FFN", 64, 32);
+        return canvas;
+      });
 
-      const texture = new THREE.CanvasTexture(canvas);
       const spriteMaterial = new THREE.SpriteMaterial({
         map: texture,
         transparent: true,
@@ -806,6 +783,9 @@ export const useTransformerSimulation = () => {
     // Create all layers - HORIZONTAL LAYOUT
     const yOffset = 0;
 
+    // Define prediction X position early for use in labels
+    const predictionX = stageXPositions.output + 6;
+
     // Create stage labels
     const labelY = yOffset + 7;
     const labels = [
@@ -816,6 +796,7 @@ export const useTransformerSimulation = () => {
       { text: "FFN", x: stageXPositions.ffn },
       { text: "Layer Norm", x: stageXPositions.layerNorm },
       { text: "Output", x: stageXPositions.output },
+      { text: "Softmax", x: predictionX - 2 },
     ];
 
     labels.forEach(({ text, x }) => {
@@ -951,8 +932,7 @@ export const useTransformerSimulation = () => {
     }
 
     // Add prediction box at the top center
-    // Place prediction at the far right, centered vertically
-    const predictionX = stageXPositions.output + 6;
+    // Place prediction at the far right, centered vertically (already defined above)
     predictedToken = createPredictedToken(
       currentPrediction,
       new THREE.Vector3(predictionX, yOffset, 0)
@@ -974,17 +954,19 @@ export const useTransformerSimulation = () => {
       const panel = new THREE.Mesh(panelGeo, panelMat);
       softmaxPanel.add(panel);
 
-      // Title
-      const titleCanvas = document.createElement("canvas");
-      const titleCtx = titleCanvas.getContext("2d")!;
-      titleCanvas.width = 256;
-      titleCanvas.height = 64;
-      titleCtx.fillStyle = "#60a5fa";
-      titleCtx.font = "bold 28px Arial";
-      titleCtx.textAlign = "center";
-      titleCtx.fillText("Softmax Probabilities", 128, 40);
+      // Title (using cache)
+      const titleCacheKey = "softmax_title";
+      const titleTexture = getCachedTexture(titleCacheKey, () => {
+        const titleCanvas = getPooledCanvas(256, 64);
+        const titleCtx = titleCanvas.getContext("2d")!;
+        titleCtx.clearRect(0, 0, titleCanvas.width, titleCanvas.height);
+        titleCtx.fillStyle = "#60a5fa";
+        titleCtx.font = "bold 28px Arial";
+        titleCtx.textAlign = "center";
+        titleCtx.fillText("Softmax Probabilities", 128, 40);
+        return titleCanvas;
+      });
 
-      const titleTexture = new THREE.CanvasTexture(titleCanvas);
       const titleSprite = new THREE.Sprite(
         new THREE.SpriteMaterial({ map: titleTexture, transparent: true })
       );
@@ -1010,25 +992,29 @@ export const useTransformerSimulation = () => {
         bgBar.position.set(1.5, 0, 0);
         barGroup.add(bgBar);
 
-        // Animated probability bar
+        // Animated probability bar - create at max width, scale down
+        const maxBarWidth = 3.0; // Max width is 3 units (100% probability)
         const probBar = new THREE.Mesh(
-          new THREE.PlaneGeometry(0.01, 0.5),
+          new THREE.PlaneGeometry(maxBarWidth, 0.5),
           new THREE.MeshBasicMaterial({ color: 0x10b981 })
         );
-        probBar.position.set(0.005, 0, 0.01);
+        probBar.position.set(maxBarWidth / 2, 0, 0.01);
+        probBar.scale.x = 0.01; // Start with very small scale
         probBar.userData.isBar = true;
+        probBar.userData.maxBarWidth = maxBarWidth; // Store max width for later
         barGroup.add(probBar);
 
-        // Label sprite (token + percentage)
-        const labelCanvas = document.createElement("canvas");
+        // Label sprite (token + percentage) - high resolution for sharp text (pooled)
+        const labelCanvas = getPooledCanvas(512, 128);
         const labelCtx = labelCanvas.getContext("2d")!;
-        labelCanvas.width = 256;
-        labelCanvas.height = 64;
+        labelCtx.clearRect(0, 0, labelCanvas.width, labelCanvas.height);
         labelCtx.fillStyle = "#ffffff";
-        labelCtx.font = "20px Arial";
-        labelCtx.fillText("...", 10, 40);
+        labelCtx.font = "bold 40px Arial"; // Scaled up with canvas
+        labelCtx.fillText("...", 20, 80);
 
         const labelTexture = new THREE.CanvasTexture(labelCanvas);
+        labelTexture.minFilter = THREE.LinearFilter; // Better filtering
+        labelTexture.magFilter = THREE.LinearFilter;
         const labelSprite = new THREE.Sprite(
           new THREE.SpriteMaterial({ map: labelTexture, transparent: true })
         );
@@ -1228,10 +1214,11 @@ export const useTransformerSimulation = () => {
       position: THREE.Vector3,
       color: string = "#60a5fa"
     ): THREE.Sprite {
-      const canvas = document.createElement("canvas");
+      const canvas = getPooledCanvas(128, 64);
       const ctx = canvas.getContext("2d")!;
-      canvas.width = 128;
-      canvas.height = 64;
+
+      // Clear and redraw
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Background
       ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
@@ -1262,6 +1249,7 @@ export const useTransformerSimulation = () => {
       sprite.userData.startTime = time;
       sprite.userData.duration = 1.0; // 1 second to flow
       sprite.userData.startPos = position.clone(); // Store start position
+      sprite.userData.canvas = canvas; // Store for cleanup
 
       scene.add(sprite);
       valueFlowSprites.push(sprite);
@@ -1288,6 +1276,17 @@ export const useTransformerSimulation = () => {
 
       if (progress >= 1) {
         scene.remove(sprite);
+
+        // Return canvas to pool
+        if (sprite.userData.canvas) {
+          returnCanvasToPool(sprite.userData.canvas);
+        }
+
+        // Dispose texture
+        if (sprite.material.map) {
+          sprite.material.map.dispose();
+        }
+
         const index = valueFlowSprites.indexOf(sprite);
         if (index > -1) valueFlowSprites.splice(index, 1);
       }
@@ -1297,7 +1296,7 @@ export const useTransformerSimulation = () => {
     let time = 0;
     let animationId: number;
     let stepProgress = 0;
-    const stepsPerToken = 7; // Input -> Embedding -> QKV -> Attention -> FFN -> Layer Norm -> Output
+    const stepsPerToken = 8; // Input -> Embedding -> QKV -> Attention -> FFN -> Layer Norm -> Output -> Softmax
 
     // Animation step tracking
     let currentAnimStep = context.currentStep;
@@ -1312,6 +1311,7 @@ export const useTransformerSimulation = () => {
       new THREE.Vector3(stageXPositions.ffn, yOffset, 0), // Step 4: FFN
       new THREE.Vector3(stageXPositions.layerNorm, yOffset, 0), // Step 5: Layer Norm
       new THREE.Vector3(stageXPositions.output, yOffset, 0), // Step 6: Output
+      new THREE.Vector3(predictionX, yOffset, 0), // Step 7: Softmax & Prediction
     ];
 
     const animate = (currentTime: number) => {
@@ -1328,6 +1328,7 @@ export const useTransformerSimulation = () => {
       if (context.stepByStep) {
         currentAnimStep = context.currentStep;
         stepProgress = 0;
+        time += deltaTime * 0.5; // Keep time advancing for smooth animations
       } else if (context.isPlaying) {
         time += deltaTime * context.speed * 2;
         stepProgress += deltaTime * context.speed * 0.3;
@@ -1459,67 +1460,105 @@ export const useTransformerSimulation = () => {
           }
         });
 
-        // Step 6: Output tensors - TRIGGER PREDICTION AND SOFTMAX
+        // Step 6: Output tensors (just animate, don't trigger prediction yet)
         outputTensors.forEach((output, i) => {
           const mat = output.material as THREE.MeshStandardMaterial;
 
           if (currentAnimStep === 6) {
-            // Trigger prediction computation when entering step 6
-            if (!context.computePrediction) {
-              context.setComputePrediction(true);
-            }
-
             const activeIdx = Math.floor((time * 0.5) % numTokens);
             mat.emissiveIntensity = i === activeIdx ? 0.9 : 0.4;
             if (i === activeIdx) {
               output.scale.setScalar(1 + Math.sin(time * 5) * 0.15);
             }
+          } else {
+            mat.emissiveIntensity = 0.4;
+            output.scale.setScalar(1);
+          }
+        });
 
-            // Show softmax panel with probabilities
-            softmaxPanel.visible = true;
+        // Step 7: Softmax & Prediction - This is where we compute probabilities and select token
+        if (currentAnimStep === 7) {
+          // Trigger prediction computation when entering step 7
+          if (!context.computePrediction) {
+            context.setComputePrediction(true);
+          }
 
-            // Update softmax panel with actual probabilities
-            if (context.intermediateValues.topPredictions) {
-              const topPreds = context.intermediateValues.topPredictions;
-              softmaxPanel.children.forEach((child, idx) => {
-                if (idx === 0 || idx === 1) return; // Skip background and title
+          // Show softmax panel with probabilities
+          softmaxPanel.visible = true;
 
-                const barGroup = child as THREE.Group;
-                const barIndex = barGroup.userData.index;
+          // Animate output tensors flowing towards prediction
+          outputTensors.forEach((output, i) => {
+            const mat = output.material as THREE.MeshStandardMaterial;
+            mat.emissiveIntensity = 0.6 + Math.sin(time * 4 + i * 0.3) * 0.4;
+          });
 
-                if (barIndex < topPreds.length) {
-                  const pred = topPreds[barIndex];
+          // Update softmax panel with actual probabilities
+          if (context.intermediateValues.topPredictions) {
+            const topPreds = context.intermediateValues.topPredictions;
+            softmaxPanel.children.forEach((child, idx) => {
+              if (idx === 0 || idx === 1) return; // Skip background and title
 
-                  // Update probability bar
-                  const probBar = barGroup.children.find(
-                    (c) => c.userData.isBar
-                  ) as THREE.Mesh;
-                  if (probBar) {
-                    const targetWidth = pred.prob * 3; // Max width 3 units
-                    const currentWidth = (
-                      probBar.geometry as THREE.PlaneGeometry
-                    ).parameters.width;
-                    const newWidth =
-                      currentWidth + (targetWidth - currentWidth) * 0.1; // Smooth animation
+              const barGroup = child as THREE.Group;
+              const barIndex = barGroup.userData.index;
 
-                    probBar.geometry.dispose();
-                    probBar.geometry = new THREE.PlaneGeometry(newWidth, 0.5);
-                    probBar.position.set(newWidth / 2, 0, 0.01);
+              if (barIndex < topPreds.length) {
+                const pred = topPreds[barIndex];
 
-                    // Color based on rank
+                // Update probability bar with smooth animation
+                const probBar = barGroup.children.find(
+                  (c) => c.userData.isBar
+                ) as THREE.Mesh;
+                if (probBar) {
+                  const maxBarWidth = probBar.userData.maxBarWidth || 3.0;
+                  const targetScale = pred.prob; // Scale from 0 to 1
+
+                  // Initialize lerp state
+                  if (!probBar.userData.initialized) {
+                    probBar.userData.currentScale = 0.01;
+                    probBar.userData.initialized = true;
+                  }
+
+                  // Smooth lerp on scale - no geometry recreation!
+                  probBar.userData.currentScale =
+                    probBar.userData.currentScale +
+                    (targetScale - probBar.userData.currentScale) * 0.15;
+                  probBar.scale.x = probBar.userData.currentScale;
+                  // Update position to keep bar left-aligned at origin
+                  probBar.position.x =
+                    (maxBarWidth / 2) * probBar.userData.currentScale;
+
+                  // Color based on rank (winner is green) - only set once
+                  if (!probBar.userData.colorSet) {
                     const colors = [
                       0x10b981, 0x3b82f6, 0xf59e0b, 0xef4444, 0x8b5cf6,
                     ];
                     (probBar.material as THREE.MeshBasicMaterial).color.setHex(
                       colors[barIndex]
                     );
+                    probBar.userData.colorSet = true;
                   }
 
-                  // Update label
-                  const labelSprite = barGroup.children.find(
-                    (c) => c.userData.isLabel
-                  ) as THREE.Sprite;
-                  if (labelSprite && labelSprite.userData.ctx) {
+                  // Pulse the winning token (only affect y-scale)
+                  if (barIndex === 0) {
+                    const pulse = 0.5 + Math.sin(time * 8) * 0.5;
+                    probBar.scale.y = 1 + pulse * 0.3;
+                  } else {
+                    probBar.scale.y = 1;
+                  }
+                }
+
+                // Update label with token and probability - only when changed
+                const labelSprite = barGroup.children.find(
+                  (c) => c.userData.isLabel
+                ) as THREE.Sprite;
+                if (labelSprite && labelSprite.userData.ctx) {
+                  // Only update if token or probability changed significantly
+                  const lastToken = labelSprite.userData.lastToken;
+                  const lastProb = labelSprite.userData.lastProb || 0;
+                  const probChanged =
+                    Math.abs(pred.prob * 100 - lastProb) > 0.5;
+
+                  if (lastToken !== pred.token || probChanged) {
                     const ctx = labelSprite.userData
                       .ctx as CanvasRenderingContext2D;
                     const canvas = labelSprite.userData
@@ -1528,24 +1567,34 @@ export const useTransformerSimulation = () => {
                       .texture as THREE.CanvasTexture;
 
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = "#ffffff";
-                    ctx.font = "bold 20px monospace";
+
+                    // Highlight the winning prediction - scaled up for high DPI
+                    if (barIndex === 0) {
+                      ctx.fillStyle = "#10b981";
+                      ctx.font = "bold 44px monospace";
+                    } else {
+                      ctx.fillStyle = "#ffffff";
+                      ctx.font = "bold 40px monospace";
+                    }
+
                     ctx.textAlign = "left";
-                    ctx.fillText(`${pred.token}`, 10, 40);
-                    ctx.fillStyle = "#60a5fa";
+                    ctx.fillText(`${pred.token}`, 20, 80);
+                    ctx.fillStyle = barIndex === 0 ? "#10b981" : "#60a5fa";
                     ctx.textAlign = "right";
-                    ctx.fillText(`${(pred.prob * 100).toFixed(1)}%`, 246, 40);
+                    ctx.fillText(`${(pred.prob * 100).toFixed(1)}%`, 492, 80);
                     texture.needsUpdate = true;
+
+                    // Store last values
+                    labelSprite.userData.lastToken = pred.token;
+                    labelSprite.userData.lastProb = pred.prob * 100;
                   }
                 }
-              });
-            }
-          } else {
-            mat.emissiveIntensity = 0.4;
-            output.scale.setScalar(1);
-            softmaxPanel.visible = false;
+              }
+            });
           }
-        });
+        } else {
+          softmaxPanel.visible = false;
+        }
 
         // Spawn value flow sprites based on current step
         if (Math.random() < 0.15 && context.intermediateValues) {
@@ -1637,33 +1686,46 @@ export const useTransformerSimulation = () => {
           }
         });
 
-        // Animate data flow lines - horizontal flow
+        // Animate data flow lines - horizontal flow with smooth transitions
         dataFlowLines.forEach((line, idx) => {
           const mat = line.material as THREE.LineBasicMaterial;
           const linesPerStage = numTokens;
           const lineStage = Math.floor(idx / linesPerStage);
 
-          // Show lines based on current step
-          // Stage 0: tokens->embeddings, Stage 1: embeddings->QKV, etc.
+          // Initialize target opacity if not set
+          if (mat.userData.targetOpacity === undefined) {
+            mat.userData.targetOpacity = 0;
+            mat.userData.currentOpacity = 0;
+          }
+
+          // Determine target opacity based on current step
+          let targetOpacity = 0;
           if (lineStage === currentAnimStep) {
             const offset = (time * 2 + idx * 0.2) % 1;
-            mat.opacity = 0.4 + Math.sin(offset * Math.PI * 2) * 0.3;
+            targetOpacity = 0.4 + Math.sin(offset * Math.PI * 2) * 0.3;
           } else if (lineStage < currentAnimStep) {
-            mat.opacity = 0.15;
+            targetOpacity = 0.15;
           } else {
-            mat.opacity = 0;
+            targetOpacity = 0;
           }
+
+          // Smooth lerp to target opacity to prevent flickering
+          mat.userData.currentOpacity =
+            mat.userData.currentOpacity +
+            (targetOpacity - mat.userData.currentOpacity) * 0.15;
+          mat.opacity = Math.max(0, Math.min(1, mat.userData.currentOpacity));
         });
 
-        // Animate predicted token
+        // Animate predicted token - only show at step 7 (softmax)
         if (predictedToken) {
           const sphere = predictedToken.children[0] as THREE.Mesh;
           const mat = sphere.material as THREE.MeshStandardMaterial;
           const glow = predictedToken.children[1] as THREE.Mesh;
           const glowMat = glow.material as THREE.MeshBasicMaterial;
 
-          if (currentAnimStep >= 6) {
-            // Pulse brightly during output step
+          if (currentAnimStep === 7) {
+            // Show and pulse brightly during softmax/prediction step
+            predictedToken.visible = true;
             mat.emissiveIntensity = 0.8 + Math.sin(time * 5) * 0.4;
             glowMat.opacity = 0.3 + Math.sin(time * 4) * 0.2;
 
@@ -1673,36 +1735,58 @@ export const useTransformerSimulation = () => {
             // Float side to side
             sphere.position.x = Math.sin(time * 2) * 0.15;
 
-            // Update prediction from context (live from model)
-            if (context.predictedToken !== currentPrediction) {
-              currentPrediction = context.predictedToken;
+            // Update prediction from context - use top prediction from softmax
+            const topToken =
+              context.intermediateValues.topPredictions?.[0]?.token ||
+              context.predictedToken;
+            if (topToken !== currentPrediction) {
+              currentPrediction = topToken;
 
-              // Update label
+              // Update label (reuse existing canvas and texture)
               const sprite = predictedToken.children[2] as THREE.Sprite;
-              const canvas = document.createElement("canvas");
-              const ctx = canvas.getContext("2d")!;
-              canvas.width = 512;
-              canvas.height = 256;
 
-              ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-              ctx.roundRect(20, 60, 472, 136, 20);
-              ctx.fill();
+              // Safety check: ensure userData exists and has required properties
+              if (
+                sprite &&
+                sprite.userData &&
+                sprite.userData.ctx &&
+                sprite.userData.canvas &&
+                sprite.userData.texture
+              ) {
+                const ctx = sprite.userData.ctx as CanvasRenderingContext2D;
+                const canvas = sprite.userData.canvas as HTMLCanvasElement;
+                const texture = sprite.userData.texture as THREE.CanvasTexture;
 
-              ctx.fillStyle = "#fbbf24";
-              ctx.font = "bold 40px Arial";
-              ctx.textAlign = "center";
-              ctx.textBaseline = "middle";
-              ctx.fillText("NEXT:", 256, 100);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+                ctx.roundRect(20, 60, 472, 136, 20);
+                ctx.fill();
 
-              ctx.fillStyle = "#ffffff";
-              ctx.font = "bold 72px Arial";
-              ctx.fillText(currentPrediction, 256, 160);
+                ctx.fillStyle = "#fbbf24";
+                ctx.font = "bold 40px Arial";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText("NEXT:", 256, 100);
 
-              const texture = new THREE.CanvasTexture(canvas);
-              (sprite.material as THREE.SpriteMaterial).map = texture;
-              (sprite.material as THREE.SpriteMaterial).needsUpdate = true;
+                ctx.fillStyle = "#10b981"; // Green for selected token
+                ctx.font = "bold 72px Arial";
+                ctx.fillText(currentPrediction, 256, 160);
+
+                // Add probability if available
+                const topProb =
+                  context.intermediateValues.topPredictions?.[0]?.prob;
+                if (topProb) {
+                  ctx.fillStyle = "#60a5fa";
+                  ctx.font = "bold 32px Arial";
+                  ctx.fillText(`${(topProb * 100).toFixed(1)}%`, 256, 210);
+                }
+
+                texture.needsUpdate = true;
+              }
             }
           } else {
+            // Hide prediction token when not at step 7
+            predictedToken.visible = false;
             mat.emissiveIntensity = 0.4;
             glowMat.opacity = 0.15;
           }
@@ -1789,8 +1873,20 @@ export const useTransformerSimulation = () => {
         if (object instanceof THREE.Sprite) {
           (object.material as THREE.SpriteMaterial).map?.dispose();
           object.material?.dispose();
+
+          // Return canvas to pool if it was pooled
+          if (object.userData.canvas) {
+            returnCanvasToPool(object.userData.canvas);
+          }
         }
       });
+
+      // Clear canvas cache
+      canvasCache.forEach((texture) => texture.dispose());
+      canvasCache.clear();
+
+      // Clear canvas pool
+      canvasPool.length = 0;
 
       renderer.dispose();
       controls.dispose();
@@ -1803,112 +1899,6 @@ export const useTransformerSimulation = () => {
 
   return context;
 };
-
-export function MultiHeadAttentionViz() {
-  const { transformerModel, currentStep, aiMode } = useTransformerSimulation();
-
-  if (aiMode || currentStep !== 3) return null;
-
-  const headWeights = transformerModel?.headAttentionWeights;
-  if (!headWeights || headWeights.length === 0) return null;
-
-  // Show first layer's attention heads
-  const layerHeads = headWeights[0];
-  if (!layerHeads || layerHeads.length === 0) return null;
-
-  return (
-    <DraggableCard
-      initialPosition={{ x: 20, y: 750 }}
-      initialSize={{ width: 420, height: "auto" }}
-      minSize={{ width: 380, height: 200 }}
-      maxSize={{ width: 600, height: 800 }}
-    >
-      <CardContent className="px-4 py-4 space-y-4">
-        <div className="space-y-2">
-          <h3 className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 16v-4" />
-              <path d="M12 8h.01" />
-            </svg>
-            Multi-Head Attention (Layer 1)
-          </h3>
-          <p className="text-xs text-zinc-400">
-            Showing {layerHeads.length} attention heads. Each head learns
-            different patterns.
-          </p>
-
-          <div className="grid grid-cols-2 gap-3 mt-3">
-            {layerHeads.map((head, headIdx) => {
-              const seqLen = head.rows;
-              const maxWeight = 1.0;
-
-              return (
-                <div key={headIdx} className="space-y-1">
-                  <p className="text-[10px] font-mono text-zinc-500">
-                    Head {headIdx + 1}
-                  </p>
-                  <div className="bg-zinc-900/80 rounded p-2">
-                    <svg
-                      width="100%"
-                      height={seqLen * 16}
-                      viewBox={`0 0 ${seqLen * 16} ${seqLen * 16}`}
-                    >
-                      {Array.from({ length: seqLen }).map((_, i) =>
-                        Array.from({ length: seqLen }).map((_, j) => {
-                          const weight = head.data[i][j];
-                          const opacity = Math.max(
-                            0,
-                            Math.min(1, weight / maxWeight)
-                          );
-                          const color = opacity > 0.5 ? "#ef4444" : "#3b82f6";
-
-                          return (
-                            <rect
-                              key={`${i}-${j}`}
-                              x={j * 16}
-                              y={i * 16}
-                              width={15}
-                              height={15}
-                              fill={color}
-                              opacity={opacity}
-                              rx={2}
-                            />
-                          );
-                        })
-                      )}
-                    </svg>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center gap-3 pt-2 border-t border-zinc-700/50">
-            <div className="flex items-center gap-1 text-[10px]">
-              <div className="w-3 h-3 bg-blue-500 rounded"></div>
-              <span className="text-zinc-400">Low</span>
-            </div>
-            <div className="flex items-center gap-1 text-[10px]">
-              <div className="w-3 h-3 bg-red-500 rounded"></div>
-              <span className="text-zinc-400">High Attention</span>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </DraggableCard>
-  );
-}
 
 export function ModelInfo() {
   const {
@@ -2106,17 +2096,19 @@ export function ManualControls() {
     predictedToken,
     setComputePrediction,
     setCurrentStep,
+    intermediateValues,
   } = useTransformerSimulation();
 
   if (aiMode) return null;
 
   const handleContinue = () => {
-    if (
-      predictedToken &&
-      predictedToken !== "..." &&
-      predictedToken !== "<|endoftext|>"
-    ) {
-      const newText = inputText + predictedToken;
+    // Use the top prediction from softmax, fallback to predictedToken
+    const tokenToAdd =
+      intermediateValues.topPredictions?.[0]?.token || predictedToken;
+
+    if (tokenToAdd && tokenToAdd !== "..." && tokenToAdd !== "<|endoftext|>") {
+      const newText = inputText + tokenToAdd;
+      console.log("Continuing with token:", tokenToAdd, "New text:", newText);
       setInputText(newText);
       setGeneratedTokenCount(generatedTokenCount + 1);
       setComputePrediction(false);
@@ -2139,7 +2131,8 @@ export function ManualControls() {
     "Step 3: Attention - Computing token relationships",
     "Step 4: Feed-Forward Network - Non-linear transformation",
     "Step 5: Layer Normalization - Stabilizing outputs",
-    "Step 6: Output - Final hidden states & prediction",
+    "Step 6: Output - Final hidden states",
+    "Step 7: Softmax - Computing probabilities & selecting token",
   ];
 
   return (
@@ -2154,13 +2147,13 @@ export function ManualControls() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-zinc-200">Input Text</h3>
-            {currentStep === 6 &&
-              predictedToken &&
-              predictedToken !== "..." && (
+            {currentStep === 7 &&
+              intermediateValues.topPredictions &&
+              intermediateValues.topPredictions[0] && (
                 <Button
                   onClick={handleContinue}
                   size="sm"
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold shadow-lg"
+                  className="bg-linear-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold shadow-lg"
                 >
                   ➕ Continue
                 </Button>
@@ -2176,19 +2169,28 @@ export function ManualControls() {
           <div className="text-xs text-zinc-500 italic">
             Using custom HF tokenizer (500 tokens)
           </div>
-          {currentStep === 6 && predictedToken && predictedToken !== "..." && (
-            <div className="bg-gradient-to-r from-amber-900/40 to-orange-900/40 border border-amber-700/50 rounded-md px-3 py-2">
-              <p className="text-xs text-amber-300">
-                Predicted:{" "}
-                <span className="font-bold text-amber-100">
-                  {predictedToken}
-                </span>
-              </p>
-              <p className="text-xs text-amber-400/70 mt-1">
-                Click "Continue" to append this token
-              </p>
-            </div>
-          )}
+          {currentStep === 7 &&
+            intermediateValues.topPredictions &&
+            intermediateValues.topPredictions[0] && (
+              <div className="bg-linear-to-r from-amber-900/40 to-orange-900/40 border border-amber-700/50 rounded-md px-3 py-2">
+                <p className="text-xs text-amber-300">
+                  Predicted:{" "}
+                  <span className="font-bold text-amber-100">
+                    {intermediateValues.topPredictions[0].token}
+                  </span>
+                  <span className="text-xs text-green-400 ml-2">
+                    (
+                    {(intermediateValues.topPredictions[0].prob * 100).toFixed(
+                      1
+                    )}
+                    %)
+                  </span>
+                </p>
+                <p className="text-xs text-amber-400/70 mt-1">
+                  Click "Continue" to append this token
+                </p>
+              </div>
+            )}
         </div>
 
         <div className="border-t border-zinc-800" />
@@ -2370,229 +2372,14 @@ export function ManualControls() {
   );
 }
 
-export const AIExplanation = ({
-  text,
-  position,
-}: {
-  text: string;
-  position: { x: number; y: number };
-}) => {
-  const { aiMode } = useTransformerSimulation();
-  const [audioURL, setAudioURL] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isVisible, setIsVisible] = useState(false);
-  const [shouldRender, setShouldRender] = useState(false);
-
-  const generateAudio = async () => {
-    if (!text.trim()) {
-      return;
-    }
-
-    setAudioURL(null);
-
-    try {
-      const response = await fetch("/api/audio/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
-
-      if (!response.ok) {
-        setIsLoading(false);
-        console.log("Failed to generate audio");
-        return;
-      }
-
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-
-      setAudioURL(url);
-
-      setTimeout(() => {
-        audioRef.current?.play().catch((e) => {
-          console.log("Auto-play blocked:", e);
-        });
-      }, 100);
-    } catch (error) {
-      console.error("Error:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    try {
-      if (!aiMode) {
-        setIsVisible(false);
-        setTimeout(() => setShouldRender(false), 500);
-        return;
-      }
-
-      setIsLoading(true);
-      setShouldRender(true);
-      generateAudio();
-    } catch (e) {
-      console.error("Error generating audio:", e);
-    }
-  }, [text, aiMode]);
-
-  useEffect(() => {
-    if (!isLoading && aiMode && shouldRender) {
-      setTimeout(() => setIsVisible(true), 50);
-
-      const hideTimer = setTimeout(() => {
-        setIsVisible(false);
-        setTimeout(() => setShouldRender(false), 500);
-      }, 15000);
-
-      return () => clearTimeout(hideTimer);
-    }
-  }, [isLoading, aiMode, shouldRender]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleAudioEnd = () => {
-      setTimeout(() => {
-        setIsVisible(false);
-        setTimeout(() => setShouldRender(false), 500);
-      }, 2000);
-    };
-
-    audio.addEventListener("ended", handleAudioEnd);
-    return () => audio.removeEventListener("ended", handleAudioEnd);
-  }, [audioURL]);
-
-  if (!shouldRender) return null;
-
-  return (
-    <div
-      style={{
-        position: "absolute",
-        left: position.x,
-        top: position.y,
-        opacity: isVisible ? 1 : 0,
-        transform: isVisible
-          ? "translateY(0) scale(1)"
-          : "translateY(20px) scale(0.95)",
-        transition: "all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
-        pointerEvents: isVisible ? "auto" : "none",
-      }}
-    >
-      <div className="relative flex items-start">
-        <Image
-          src="/mela.webp"
-          width={200}
-          height={400}
-          draggable={false}
-          alt="AI Explanation"
-          className="rounded-2xl rounded-tr-none object-cover object-top select-none"
-          style={{
-            transform: isVisible ? "translateX(0)" : "translateX(-30px)",
-            opacity: isVisible ? 1 : 0,
-            transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s",
-          }}
-        />
-        <div
-          className="bg-white rounded-2xl rounded-bl-none shadow-lg p-4 max-w-xs -ml-10"
-          style={{
-            transform: isVisible ? "translateX(0)" : "translateX(30px)",
-            opacity: isVisible ? 1 : 0,
-            transition: "all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s",
-          }}
-        >
-          <p className="text-sm text-gray-800">{text}</p>
-        </div>
-      </div>
-      {audioURL && (
-        <audio
-          ref={audioRef}
-          src={audioURL}
-          className="mt-2 w-full"
-          style={{
-            opacity: isVisible ? 1 : 0,
-            transition: "opacity 0.4s ease-in-out 0.4s",
-          }}
-        />
-      )}
-    </div>
-  );
-};
-
 export default function TransformerSimulation() {
-  const { mountRef, aiMode, toggleAIMode } = useTransformerSimulation();
+  const { mountRef, aiMode, currentStep, nextStep } = useTransformerSimulation();
 
   return (
     <div className="relative w-full h-screen bg-gray-900">
       {/* 3D Scene Canvas */}
       <div ref={mountRef} className="w-full h-full bg-zinc-900" />
-
-      {/* AI/Manual Mode Toggle */}
-      <div className="absolute bottom-4 left-4 z-50">
-        <Button
-          onClick={toggleAIMode}
-          variant={aiMode ? "default" : "outline"}
-          className={cn(
-            "flex items-center gap-2 transition-all duration-200",
-            aiMode
-              ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-500"
-              : "bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-600"
-          )}
-        >
-          {aiMode ? (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 8V4H8" />
-                <rect width="16" height="12" x="4" y="8" rx="2" />
-                <path d="M2 14h2" />
-                <path d="M20 14h2" />
-                <path d="M15 13v2" />
-                <path d="M9 13v2" />
-              </svg>
-              AI Mode
-            </>
-          ) : (
-            <>
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 20h9" />
-                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-              </svg>
-              Manual Mode
-            </>
-          )}
-        </Button>
-      </div>
-
-      <ManualControls />
-      <MultiHeadAttentionViz />
-      <AIExplanation
-        text="Watch a REAL transformer model predict the next token! This uses a custom HuggingFace ByteLevel BPE tokenizer (trained on WikiText-2) with 500-token vocabulary and an actual transformer (~80K parameters) featuring TRUE multi-head attention (4 heads), feed-forward networks, and layer normalization. The model computes attention weights PER HEAD, allowing each head to learn different linguistic patterns! Data flows left-to-right through 7 stages: (1) Input tokens (custom BPE), (2) Embeddings (blue), (3) Q/K/V projections (cyan/magenta/yellow), (4) Multi-head attention (red grids - each head shown separately), (5) FFN (green), (6) Layer Norm (purple), (7) Output. The golden sphere shows the predicted token AFTER softmax!"
-        position={{ x: 20, y: 450 }}
-      />
+      {aiMode && <SimpleAITutor currentStep={currentStep} onNext={nextStep} />}
     </div>
   );
 }

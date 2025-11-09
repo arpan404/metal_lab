@@ -18,5 +18,5 @@ export async function POST(req: Request) {
         tool_choice: "auto",
         stream: false,
     });
-    return response;
+    return Response.json(response);
 };

@@ -20,7 +20,7 @@ export const componentMap: Record<
   },
   transformerSimulation: {
     name: "Transformer Simulation",
-    description: "Explore the principles of transformers and electromagnetic induction.",
+    description: `Explore how transformer models process text step-by-step. This uses a custom HuggingFace ByteLevel BPE tokenizer (trained on WikiText-2) with 500-token vocabulary and an actual transformer (~80K parameters) featuring TRUE multi-head attention (4 heads), feed-forward networks, and layer normalization. The model computes attention weights PER HEAD, allowing each head to learn different linguistic patterns! Data flows left-to-right through 7 stages: (1) Input tokens (custom BPE), (2) Embeddings (blue), (3) Q/K/V projections (cyan/magenta/yellow), (4) Multi-head attention (red grids - each head shown separately), (5) FFN (green), (6) Layer Norm (purple), (7) Output. The golden sphere shows the predicted token AFTER softmax! `,
     component: TransformerSimulation,
     provider: TransformerSimulationProvider
   }
