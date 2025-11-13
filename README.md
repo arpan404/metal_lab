@@ -74,6 +74,8 @@ cd metal_lab
 npm run dev
 ```
 
+---
+
 ## What's next for Metal Lab
 - Implement OpenAI Clip for consistent concept clarity according to what's shown on the simulations as well as different concepts that branch out when parameters are slightly changed (For example - Damped Oscillation of Foucault Pendulum, Double Slit Experiment variants)
 - Have Grok change the parameters autonomously while explaining the concepts during the simulation runs
