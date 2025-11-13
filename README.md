@@ -1,131 +1,81 @@
-# Generate Audio
+# Metal Lab
 
-To generate the audio, hit `/api/audio/generate` using POST method. 
-```ts
+## Description
+An advanced practical education platform that combines GPU-accelerated physics simulations with AI-powered tutoring. Metal Lab enables students to explore classical and quantum physics through interactive 3D experiments controlled and explained by Large Language Models.
 
-export default function DashboardPage() {
-  const [text, setText] = useState("Hello, I am AI");
-  const [isLoading, setIsLoading] = useState(false);
-  const [status, setStatus] = useState<{
-    type: "success" | "error" | "loading" | null;
-    message: string;
-  }>({ type: null, message: "" });
-  const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+---
 
-  const generateAudio = async () => {
-    if (!text.trim()) {
-      setStatus({ type: "error", message: "Please enter some text" });
-      return;
-    }
+## Inspiration
+Since Covid, virtual labs have been extensively used by various educational institutions across the globe. Nvidia has recently been stressing more upon simulations for everything rather than animations. University of Colorado partnered with Nvidia to build PhET, a GPU-accelerated simulation based lab. That's when we got the idea of building something like PhET + Khan Academy where AI Assistant drive these simulations and also at the same time, allow users to learn, experiment around as well as play with physics simulations in a fun learning environment.
 
-    setIsLoading(true);
-    setStatus({ type: "loading", message: "Generating audio..." });
-    setAudioUrl(null);
+---
 
-    try {
-      const response = await fetch("/api/audio/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
+## What it does
+Metal Lab is a practical learning app that acts as a virtual-lab and learning platform for students to gain experiential learning. It provides five historically significant physics experiments with AI-guided explanation and learning-experience. Furthermore, Metal Lab includes games that users can play, interact and learn from, all of which is GPU accelerated with the help of Metal shaders. Users can change parameters of the experiments at their convenience and even talk to the AI assistant - Mela, for doubts and gaining clarity on various physics concepts. Metal Labs helps the user progress through their coursework and monitor it in a unified dashboard. As a B2B business sold to high schools and undergraduate labs, Metal Lab's platform can help perform experiments that are almost impossible to include in a small-scale laboratory with limited equipment.
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+---
 
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
+## How we built it
 
-      setAudioUrl(url);
-      setStatus({
-        type: "success",
-        message: "✓ Audio generated successfully! Click play below.",
-      });
+### Main Architecture
+- **Next.js 15** (App Router) with **React 19** for the UI framework
+- **TypeScript** for type safety across 15,000+ lines of code
+- **Tailwind CSS + Radix UI** for modern, accessible components
+- **Three.js** for 3D visualization and rendering
+- **Zustand** for state management
+- **Clerk** for authentication
+- **Supabase** for PostgreSQL database
 
-      // Auto-play
-      setTimeout(() => {
-        audioRef.current?.play().catch((e) => {
-          console.log("Auto-play blocked:", e);
-        });
-      }, 100);
-    } catch (error) {
-      console.error("Error:", error);
-      setStatus({
-        type: "error",
-        message: `✗ Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+### WebGL Model, Scene and Effect Renders
+- **Three.js** (jsm/examples) and simple geometries
+- **Sketchfab** for free-licensed models of pendulum, nascar car
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.ctrlKey && e.key === "Enter") {
-      generateAudio();
-    }
-  };
+### Physics Engines and Math Calculations
+- **Cannon-es** for using Cannon.js
 
-  return (
-    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <h1 className="text-3xl font-bold mb-2 text-gray-900">
-            🎙️ Text-to-Speech
-          </h1>
-          <p className="text-gray-600 mb-6">
-            Enter text below to generate audio:
-          </p>
+### GPU Acceleration (WebGPU)
+- **Metal** for Metal shaders to fully utilize metal GPUs on Apple Silicon (scalable for more complicated renders)
+- **WGSL & GLSL**
 
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Type something like: Hello, I am AI..."
-            className="w-full min-h-[120px] p-4 border-2 border-gray-300 rounded-lg text-sm resize-vertical focus:outline-none focus:border-blue-500 transition-colors"
-          />
+### LLM APIs
+- **xAI Grok** for concept explanations as well as chat assistant
+- **ElevenLabs** for Text-to-Speech
 
-          <button
-            onClick={generateAudio}
-            disabled={isLoading}
-            className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium py-3 px-6 rounded-lg transition-colors disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Generating..." : "Generate Audio"}
-          </button>
+## Challenges we ran into
+- Finding the right 3D models and calculations that support the 3D graphics
+- Renders and Scene generation
+- Integrating LLM tool calls for LLM driven simulations (better explanation)
+- Series of testing and debugging renders as well as LLM explanation points during the simulations
 
-          {status.type && (
-            <div
-              className={`mt-4 p-4 rounded-lg ${
-                status.type === "success"
-                  ? "bg-green-50 text-green-800"
-                  : status.type === "error"
-                    ? "bg-red-50 text-red-800"
-                    : "bg-blue-50 text-blue-800"
-              }`}
-            >
-              {status.message}
-            </div>
-          )}
+## Accomplishments that we're proud of
+- LLM explanation points emulating AI driven simulations that use Text-to-speech
+- Having 5+ experiments + a game that makes the practical learning on Metal Labs app a really fun experience
+- Building physics engines for Kinematics, Waves and Particles, Quantum Mechanics (Basic) as well as Electromagnetism (NO UNITY or UNREAL)
 
-          {audioUrl && (
-            <audio
-              ref={audioRef}
-              src={audioUrl}
-              controls
-              className="w-full mt-4"
-            />
-          )}
+---
 
-          <p className="text-sm text-gray-500 mt-4">
-            💡 Tip: Press <kbd className="px-2 py-1 bg-gray-100 rounded">Ctrl</kbd> +{" "}
-            <kbd className="px-2 py-1 bg-gray-100 rounded">Enter</kbd> to generate
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
+## What we learned
+- WebGL concepts with 2D and 3D renders, without use of engines like Unity and Unreal
+- OpenAI Clip (incomplete implementation) for training AI on the live feed of the simulations
+
+---
+
+## Build (MVP)
+### Simulations 
 ```
-**Note**: We will auto play the audio, audio generation take time, so we will need to make sure that audio and text sync. For that don't show the text before audio is generated.
+cd physics-engine/demo-app
+npm run build
+npm run dev
+```
+
+### App Platform
+```
+cd metal_lab
+npm run dev
+```
+
+## What's next for Metal Lab
+- Implement OpenAI Clip for consistent concept clarity according to what's shown on the simulations as well as different concepts that branch out when parameters are slightly changed (For example - Damped Oscillation of Foucault Pendulum, Double Slit Experiment variants)
+- Have Grok change the parameters autonomously while explaining the concepts during the simulation runs
+- Better Blender-built renders for realistic lab simulations
+- Scaling it as a B2B business sold to high schools and university labs for STEM concepts on a subscription based revenue model.
